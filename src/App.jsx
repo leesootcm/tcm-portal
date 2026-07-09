@@ -12,7 +12,8 @@ const AREAS = [
     id: "acu", label: "침구", en: "Acupuncture",
     sections: [
       { id: "acu-found", label: "TCM Foundations", ko: "기초 이론", hasNote: true },
-      { id: "acu-diag", label: "Diagnosis", ko: "진단", hasNote: true },
+      { id: "acu-diag", label: "Diagnostic Methods", ko: "진단방법", hasNote: true },
+      { id: "acu-pattern", label: "Diagnosis", ko: "변증진단", hasNote: true },
       { id: "acu-points", label: "Acupuncture Points", ko: "경혈", live: true },
       { id: "acu-selection", label: "Point Selections", ko: "배혈법", hasNote: true },
       { id: "acu-tech", label: "Techniques", ko: "자침 수기", hasNote: true },
