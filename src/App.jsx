@@ -15,7 +15,7 @@ const AREAS = [
       { id: "acu-diag", label: "Diagnosis", ko: "진단", hasNote: true },
       { id: "acu-points", label: "Acupuncture Points", ko: "경혈", live: true },
       { id: "acu-tech", label: "Techniques", ko: "자침 수기", hasNote: true },
-      { id: "acu-thera", label: "Therapeutics", ko: "치료" },
+      { id: "acu-thera", label: "Therapeutics", ko: "치료", hasNote: true },
       { id: "acu-west", label: "Biomedicine", ko: "서양의학" },
       { id: "acu-safety", label: "Safety", ko: "안전" },
     ],
@@ -229,7 +229,7 @@ function Home({ go, pointsPct, knownCount, wrong, dday, examDate, setExamDate })
       <div className="grid3">
         <MiniStat label="전체 섹션" value={`${totalSections}개`} note="침구7 · 허벌3 · 법규1" />
         <MiniStat label="오답노트" value={`${wrong.length}개`} note={wrong.length ? "복습 필요" : "깨끗함"} onClick={() => go("wrong")} />
-        <MiniStat label="콘텐츠 준비" value="4 / 11" note="Foundations · Diagnosis · Techniques · Points" />
+        <MiniStat label="콘텐츠 준비" value="5 / 11" note="Foundations · Diagnosis · Techniques · Points · Therapeutics" />
       </div>
 
       <div className="panel">
