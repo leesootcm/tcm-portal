@@ -29,12 +29,6 @@ const AREAS = [
       { id: "herb-safety", label: "Safety" },
     ],
   },
-  {
-    id: "common", label: "Common",
-    sections: [
-      { id: "juris", label: "Jurisprudence" },
-    ],
-  },
 ];
 
 const SECTION_INDEX = Object.fromEntries(
@@ -128,25 +122,71 @@ const store = {
 const shuffle = (a) => { const x = [...a]; for (let i = x.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [x[i], x[j]] = [x[j], x[i]]; } return x; };
 
 function buildQuestions(cards, n = 8) {
-  if (!cards || cards.length === 0) return [];
-  const src = shuffle(cards), out = [];
-  const count = Math.min(n, cards.length);
-  for (let i = 0; i < count; i++) {
-    const c = src[i % src.length];
-    const validFields = (c.fields || []).filter(f => f.value && f.value.length > 0 && f.value.length < 220);
-    let q, correct, pool;
-    if (validFields.length > 0 && Math.random() < 0.75) {
-      const f = validFields[Math.floor(Math.random() * validFields.length)];
-      q = `Which one has this ${f.label}: "${f.value}"?`;
-      correct = c.code;
-      pool = cards.map(x => x.code);
-    } else {
-      q = `Which chapter does ${c.code}${c.cn ? " (" + c.cn + ")" : ""} belong to?`;
-      correct = c.chapterTitle;
-      pool = [...new Set(cards.map(x => x.chapterTitle))];
+  if (!cards || cards.length < 4) return [];
+  const out = [];
+  const src = shuffle(cards);
+  let attempts = 0, i = 0;
+
+  while (out.length < n && attempts < n * 8) {
+    attempts++;
+    const c = src[i % src.length]; i++;
+    const validFields = (c.fields || []).filter(f => f.value && f.value.length > 0);
+
+    const templates = [];
+
+    // T1: given an attribute, name the item
+    if (validFields.length > 0) {
+      templates.push(() => {
+        const shortish = validFields.filter(f => f.value.length < 220);
+        if (shortish.length === 0) return null;
+        const f = shortish[Math.floor(Math.random() * shortish.length)];
+        const pool = cards.map(x => x.code).filter(x => x !== c.code);
+        if (pool.length < 3) return null;
+        const options = shuffle([c.code, ...shuffle(pool).slice(0, 3)]);
+        return { text: `Which one has this ${f.label}: "${f.value}"?`, correct: c.code, options };
+      });
     }
-    const opts = shuffle([correct, ...shuffle(pool.filter(o => o !== correct)).slice(0, 3)]);
-    out.push({ id: `${c.code}-${i}`, text: q, correct, options: opts, point: c.code, sectionId: c.sectionId });
+
+    // T2: given a name, identify its chapter
+    templates.push(() => {
+      const pool = [...new Set(cards.map(x => x.chapterTitle))].filter(x => x !== c.chapterTitle);
+      if (pool.length < 3) return null;
+      const options = shuffle([c.chapterTitle, ...shuffle(pool).slice(0, 3)]);
+      return { text: `Which chapter does ${c.code}${c.cn ? " (" + c.cn + ")" : ""} belong to?`, correct: c.chapterTitle, options };
+    });
+
+    // T3: given a name, recall a specific attribute (reverse of T1)
+    if (validFields.length > 0) {
+      templates.push(() => {
+        const shortFields = validFields.filter(f => f.value.length <= 80);
+        if (shortFields.length === 0) return null;
+        const f = shortFields[Math.floor(Math.random() * shortFields.length)];
+        const distractors = [...new Set(
+          cards.filter(x => x.code !== c.code)
+            .map(x => (x.fields || []).find(ff => ff.label === f.label))
+            .filter(Boolean).map(ff => ff.value)
+            .filter(v => v && v !== f.value && v.length <= 80)
+        )];
+        if (distractors.length < 3) return null;
+        const options = shuffle([f.value, ...shuffle(distractors).slice(0, 3)]);
+        return { text: `What is the ${f.label} of ${c.code}${c.cn ? " (" + c.cn + ")" : ""}?`, correct: f.value, options };
+      });
+    }
+
+    // T4: odd one out — which one does NOT belong to this chapter
+    templates.push(() => {
+      const sameChapter = shuffle(cards.filter(x => x.chapterId === c.chapterId && x.code !== c.code)).slice(0, 2);
+      const outsider = shuffle(cards.filter(x => x.chapterId !== c.chapterId))[0];
+      if (sameChapter.length < 2 || !outsider) return null;
+      const options = shuffle([c.code, sameChapter[0].code, sameChapter[1].code, outsider.code]);
+      return { text: `Which one does NOT belong to "${c.chapterTitle}"?`, correct: outsider.code, options };
+    });
+
+    const t = templates[Math.floor(Math.random() * templates.length)];
+    const result = t();
+    if (result) {
+      out.push({ id: `${c.code}-${out.length}`, text: result.text, correct: result.correct, options: result.options, point: c.code, sectionId: c.sectionId });
+    }
   }
   return out;
 }
@@ -190,12 +230,17 @@ export default function App() {
 
   const herbSingleCards = useMemo(() => deriveGenericCards(chapterData, "herb-single"), [chapterData]);
   const herbFormulaCards = useMemo(() => deriveGenericCards(chapterData, "herb-formula"), [chapterData]);
-  const cardsBySection = useMemo(() => ({
-    "acu-points": allPoints,
-    "herb-single": herbSingleCards,
-    "herb-formula": herbFormulaCards,
-  }), [allPoints, herbSingleCards, herbFormulaCards]);
-  const allCards = useMemo(() => [...allPoints, ...herbSingleCards, ...herbFormulaCards], [allPoints, herbSingleCards, herbFormulaCards]);
+  const cardsBySection = useMemo(() => {
+    const map = { "acu-points": allPoints, "herb-single": herbSingleCards, "herb-formula": herbFormulaCards };
+    if (chapterData) {
+      Object.keys(chapterData).forEach(sid => {
+        if (map[sid]) return; // already handled above
+        map[sid] = deriveGenericCards(chapterData, sid);
+      });
+    }
+    return map;
+  }, [chapterData, allPoints, herbSingleCards, herbFormulaCards]);
+  const allCards = useMemo(() => Object.values(cardsBySection).flat(), [cardsBySection]);
 
   const dday = useMemo(() => {
     if (!examDate) return null;
@@ -245,7 +290,8 @@ export default function App() {
           <div className="navdiv" />
           <div className="navlabel">Study Tools</div>
           <NavItem label="Flashcards" active={nav.view === "cards"} onClick={() => go("cards")} />
-          <NavItem label="Quiz · Mock Exam" active={nav.view === "quiz"} onClick={() => go("quiz")} />
+          <NavItem label="Quiz" active={nav.view === "quiz" || nav.view === "quizSection"} onClick={() => go("quiz")} />
+          <NavItem label="Mock Exam" active={nav.view === "mockexam"} onClick={() => go("mockexam")} />
           <NavItem label={`Wrong Answers${wrong.length ? ` · ${wrong.length}` : ""}`} active={nav.view === "wrong"} onClick={() => go("wrong")} />
           <NavItem label="Upload Exam" active={nav.view === "upload"} onClick={() => go("upload")} />
           <NavItem label="Progress Tracker" active={nav.view === "progress"} onClick={() => go("progress")} />
@@ -261,9 +307,11 @@ export default function App() {
           {nav.view === "home" && <Home go={go} pointsPct={pointsPct} knownCount={knownCount} pointsTotal={allPoints.length} wrong={wrong} dday={dday} examDate={examDate} setExamDate={(v) => { setExamDate(v); store.set("tcm:examDate", v); }} />}
           {nav.view === "section" && <SectionPage sid={nav.sectionId} go={go} known={known} setKnown={setKnown} bookmarks={bookmarks} setBookmarks={setBookmarks} wrong={wrong} setWrong={setWrong} chapterData={chapterData} allPoints={allPoints} cardsBySection={cardsBySection} />}
           {nav.view === "cards" && <CardsPlayer known={known} setKnown={setKnown} points={allCards} />}
-          {nav.view === "quiz" && <QuizRunner wrong={wrong} setWrong={setWrong} points={allCards} />}
+          {nav.view === "quiz" && <QuizHub go={go} cardsBySection={cardsBySection} />}
+          {nav.view === "quizSection" && <QuizRunner wrong={wrong} setWrong={setWrong} points={cardsBySection[nav.sectionId] || []} sectionTitle={(SECTION_INDEX[nav.sectionId] || {}).label} onBack={() => go("quiz")} />}
           {nav.view === "wrong" && <WrongBook wrong={wrong} setWrong={setWrong} go={go} />}
           {nav.view === "upload" && <UploadStub />}
+          {nav.view === "mockexam" && <MockExamStub />}
           {nav.view === "progress" && <ProgressTracker knownCount={knownCount} pointsTotal={allPoints.length} cardsBySection={cardsBySection} known={known} />}
           {nav.view === "mypage" && <MyPage pointsPct={pointsPct} pointsTotal={allPoints.length} bookmarks={bookmarks} setBookmarks={setBookmarks} go={go} dday={dday} />}
         </main>
@@ -601,7 +649,7 @@ function CardsPlayer({ known, setKnown, embedded, points, filterChapterId, onFil
 }
 
 /* ---------------- QUIZ runner ---------------- */
-function QuizRunner({ wrong, setWrong, embedded, points, filterChapterId, onFilterChange }) {
+function QuizRunner({ wrong, setWrong, embedded, points, filterChapterId, onFilterChange, sectionTitle, onBack }) {
   const allPts = points || [];
   const [internalFilter, setInternalFilter] = useState("all");
   const filter = filterChapterId !== undefined ? filterChapterId : internalFilter;
@@ -640,7 +688,8 @@ function QuizRunner({ wrong, setWrong, embedded, points, filterChapterId, onFilt
     const pct = Math.round((score / quiz.length) * 100);
     return (
       <div>
-        {!embedded && <Header eyebrow="Study Tools" title="Results" />}
+        {!embedded && <Header eyebrow="Study Tools" title="Results" sub={sectionTitle} />}
+        {onBack && <button className="backbtn" onClick={onBack}>← Quiz Categories</button>}
         <div className="result">
           <div className="resultscore">{score}<span className="resultof"> / {quiz.length}</span></div>
           <div className="resultpct">{pct}% · Time {fmt(sec)}</div>
@@ -654,7 +703,8 @@ function QuizRunner({ wrong, setWrong, embedded, points, filterChapterId, onFilt
   const cur = quiz[qi];
   return (
     <div>
-      {!embedded && <Header eyebrow="Study Tools" title="Quiz · Mock Exam" />}
+      {!embedded && <Header eyebrow="Study Tools" title={sectionTitle ? `Quiz — ${sectionTitle}` : "Quiz"} />}
+      {onBack && <button className="backbtn" onClick={onBack}>← Quiz Categories</button>}
       <div className="toolbar" style={{ marginBottom: 8 }}>
         <ChapterFilterSelect value={filter} onChange={setFilter} allCount={allPts.length} groups={chapterGroups} />
       </div>
@@ -675,6 +725,52 @@ function QuizRunner({ wrong, setWrong, embedded, points, filterChapterId, onFilt
       <div className="cardctrl">
         <button className="ghost" onClick={start}>↻ New Set</button>
         <button className="mark" disabled={!picked} style={{ opacity: picked ? 1 : 0.4 }} onClick={next}>{qi + 1 >= quiz.length ? "See Results" : "Next →"}</button>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- QUIZ hub (category landing page) ---------------- */
+function QuizHub({ go, cardsBySection }) {
+  return (
+    <div>
+      <Header eyebrow="Study Tools" title="Quiz" sub="Pick a category to practice — questions are generated from that section's content." />
+      <div className="grid2">
+        {AREAS.flatMap(a => a.sections).map(s => {
+          const cards = cardsBySection[s.id] || [];
+          const count = cards.length;
+          return (
+            <button
+              key={s.id}
+              className={`ministat ${count > 0 ? "click" : ""}`}
+              disabled={count === 0}
+              style={count === 0 ? { opacity: 0.5, cursor: "default" } : undefined}
+              onClick={() => count > 0 && go("quizSection", s.id)}
+            >
+              <div className="ministatlabel">{s.label}</div>
+              <div className="ministatvalue">{count}</div>
+              <div className="ministatnote">{count > 0 ? "items available" : "Coming soon"}</div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- MOCK EXAM stub ---------------- */
+function MockExamStub() {
+  return (
+    <div>
+      <Header eyebrow="Study Tools" title="Mock Exam" />
+      <div className="uploadbox">
+        <div className="uploadicon">▤</div>
+        <div className="uploadtitle">Full-Length Practice Exams</div>
+        <p className="dim" style={{ maxWidth: 420, margin: "8px auto 0" }}>
+          Timed, full-length mock exams built from real past-exam-style material will live here.
+          This is separate from the auto-generated Quiz — it's meant to simulate the real test once source material is added.
+        </p>
+        <div className="uploadstub">Coming soon · materials to be added</div>
       </div>
     </div>
   );
