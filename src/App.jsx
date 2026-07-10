@@ -893,9 +893,9 @@ const CSS = `
 .litemdetail{font-size:13px;line-height:1.55;color:var(--dim);margin-top:4px;}
 .ltablewrap{overflow-x:auto;margin-top:6px;border:1px solid var(--parch2);border-radius:10px;}
 .ltable{border-collapse:collapse;width:100%;font-size:13px;background:var(--card);}
-.ltable th,.ltable td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--parch);border-right:1px solid var(--parch);vertical-align:top;line-height:1.45;}
+.ltable th,.ltable td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--parch);border-right:1px solid var(--parch);vertical-align:top;line-height:1.45;white-space:pre-line;}
 .ltable thead th{background:var(--parch);font-weight:600;color:var(--jade);white-space:nowrap;}
-.ltable tbody th.ltrowhead{background:var(--parch);font-weight:600;color:var(--ink);white-space:nowrap;}
+.ltable tbody th.ltrowhead{background:var(--parch);font-weight:600;color:var(--ink);white-space:pre-line;min-width:150px;}
 .ltable tr:last-child th,.ltable tr:last-child td{border-bottom:none;}
 .ltable th:last-child,.ltable td:last-child{border-right:none;}
 .ltcorner{background:var(--parch)!important;}
