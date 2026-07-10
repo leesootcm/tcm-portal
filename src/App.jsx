@@ -505,21 +505,48 @@ function SectionProgress({ isLive, known, total, cards }) {
 }
 
 /* ---------------- FLASHCARD player ---------------- */
+function buildChapterOptions(cards) {
+  const bySection = new Map();
+  cards.forEach(c => {
+    if (!bySection.has(c.sectionId)) bySection.set(c.sectionId, new Map());
+    const m = bySection.get(c.sectionId);
+    if (!m.has(c.chapterId)) m.set(c.chapterId, c.chapterTitle);
+  });
+  return [...bySection.entries()].map(([sectionId, chMap]) => ({
+    sectionId,
+    sectionLabel: (SECTION_INDEX[sectionId] && SECTION_INDEX[sectionId].label) || sectionId,
+    options: [...chMap.entries()],
+  }));
+}
+
+function ChapterFilterSelect({ value, onChange, allCount, groups }) {
+  return (
+    <select className="ghost" value={value} onChange={(e) => onChange(e.target.value)}>
+      <option value="all">All ({allCount})</option>
+      {groups.length > 1
+        ? groups.map(g => (
+            <optgroup key={g.sectionId} label={g.sectionLabel}>
+              {g.options.map(([id, title]) => <option key={id} value={id}>{title}</option>)}
+            </optgroup>
+          ))
+        : groups[0] && groups[0].options.map(([id, title]) => <option key={id} value={id}>{title}</option>)}
+    </select>
+  );
+}
+
 function CardsPlayer({ known, setKnown, embedded, points, filterChapterId, onFilterChange }) {
   const allPts = points || [];
-  const filter = filterChapterId || "all";
+  const [internalFilter, setInternalFilter] = useState("all");
+  const filter = filterChapterId !== undefined ? filterChapterId : internalFilter;
+  const setFilter = onFilterChange || setInternalFilter;
   const filtered = filter === "all" ? allPts : allPts.filter(p => p.chapterId === filter);
-  const chapterOptions = useMemo(() => {
-    const seen = new Map();
-    allPts.forEach(p => { if (!seen.has(p.chapterId)) seen.set(p.chapterId, p.chapterTitle); });
-    return [...seen.entries()];
-  }, [allPts]);
+  const chapterGroups = useMemo(() => buildChapterOptions(allPts), [allPts]);
 
   const [deck, setDeck] = useState(filtered);
   const [idx, setIdx] = useState(0);
   const [flipped, setFlipped] = useState(false);
 
-  useEffect(() => { setDeck(filtered); setIdx(0); setFlipped(false); }, [filterChapterId, allPts.length]);
+  useEffect(() => { setDeck(filtered); setIdx(0); setFlipped(false); }, [filter, allPts.length]);
 
   const knownCount = allPts.filter(p => known[p.code]).length;
 
@@ -537,14 +564,9 @@ function CardsPlayer({ known, setKnown, embedded, points, filterChapterId, onFil
   return (
     <div>
       {!embedded && <Header eyebrow="Study Tools" title="Flashcards" />}
-      {onFilterChange && (
-        <div className="toolbar" style={{ marginBottom: 8 }}>
-          <select className="ghost" value={filter} onChange={(e) => onFilterChange(e.target.value)}>
-            <option value="all">All ({allPts.length})</option>
-            {chapterOptions.map(([id, title]) => <option key={id} value={id}>{title}</option>)}
-          </select>
-        </div>
-      )}
+      <div className="toolbar" style={{ marginBottom: 8 }}>
+        <ChapterFilterSelect value={filter} onChange={setFilter} allCount={allPts.length} groups={chapterGroups} />
+      </div>
       <div className="toolbar">
         <span className="mono">{idx + 1} / {deck.length}</span>
         <span className="pill">Known {knownCount}/{allPts.length}</span>
@@ -581,13 +603,11 @@ function CardsPlayer({ known, setKnown, embedded, points, filterChapterId, onFil
 /* ---------------- QUIZ runner ---------------- */
 function QuizRunner({ wrong, setWrong, embedded, points, filterChapterId, onFilterChange }) {
   const allPts = points || [];
-  const filter = filterChapterId || "all";
+  const [internalFilter, setInternalFilter] = useState("all");
+  const filter = filterChapterId !== undefined ? filterChapterId : internalFilter;
+  const setFilter = onFilterChange || setInternalFilter;
   const filtered = filter === "all" ? allPts : allPts.filter(p => p.chapterId === filter);
-  const chapterOptions = useMemo(() => {
-    const seen = new Map();
-    allPts.forEach(p => { if (!seen.has(p.chapterId)) seen.set(p.chapterId, p.chapterTitle); });
-    return [...seen.entries()];
-  }, [allPts]);
+  const chapterGroups = useMemo(() => buildChapterOptions(allPts), [allPts]);
 
   const [quiz, setQuiz] = useState(() => buildQuestions(filtered, 8));
   const [qi, setQi] = useState(0);
@@ -596,7 +616,7 @@ function QuizRunner({ wrong, setWrong, embedded, points, filterChapterId, onFilt
   const [sec, setSec] = useState(0);
   const [done, setDone] = useState(false);
 
-  useEffect(() => { start(); }, [filterChapterId, allPts.length]); // eslint-disable-line
+  useEffect(() => { start(); }, [filter, allPts.length]); // eslint-disable-line
   useEffect(() => { if (done) return; const t = setInterval(() => setSec(s => s + 1), 1000); return () => clearInterval(t); }, [done]);
 
   const start = () => { setQuiz(buildQuestions(filtered, 8)); setQi(0); setPicked(null); setScore(0); setSec(0); setDone(false); };
@@ -635,14 +655,9 @@ function QuizRunner({ wrong, setWrong, embedded, points, filterChapterId, onFilt
   return (
     <div>
       {!embedded && <Header eyebrow="Study Tools" title="Quiz · Mock Exam" />}
-      {onFilterChange && (
-        <div className="toolbar" style={{ marginBottom: 8 }}>
-          <select className="ghost" value={filter} onChange={(e) => onFilterChange(e.target.value)}>
-            <option value="all">All ({allPts.length})</option>
-            {chapterOptions.map(([id, title]) => <option key={id} value={id}>{title}</option>)}
-          </select>
-        </div>
-      )}
+      <div className="toolbar" style={{ marginBottom: 8 }}>
+        <ChapterFilterSelect value={filter} onChange={setFilter} allCount={allPts.length} groups={chapterGroups} />
+      </div>
       <div className="toolbar">
         <span className="mono">Question {qi + 1} / {quiz.length}</span>
         <span className="mono timer">⏱ {fmt(sec)}</span>
