@@ -387,6 +387,8 @@ function SectionPage({ sid, go, known, setKnown, bookmarks, setBookmarks, wrong,
   const activeChapter = chapters && openChapter ? chapters.find(c => c.id === openChapter) : null;
   const isCardChapter = isLive && activeChapter && (activeChapter.blocks || []).some(b => b.table);
   const practiceThisChapter = () => { setCardFilter(activeChapter.id); setTab("cards"); };
+  const activeIdx = chapters && activeChapter ? chapters.findIndex(c => c.id === activeChapter.id) : -1;
+  const nextChapter = chapters && activeIdx >= 0 ? chapters.slice(activeIdx + 1).find(c => c.status === "ready") : null;
 
   return (
     <div>
@@ -410,7 +412,14 @@ function SectionPage({ sid, go, known, setKnown, bookmarks, setBookmarks, wrong,
                 <button className="backbtn" onClick={() => setOpenChapter(null)}>← Chapter List</button>
                 {isCardChapter && <button className="mark" style={{ marginBottom: 14 }} onClick={practiceThisChapter}>Practice this chapter with flashcards →</button>}
                 <LectureNote note={activeChapter} />
-                <button className="backbtn backbtn-bottom" onClick={() => setOpenChapter(null)}>← Back to Chapter List</button>
+                <div className="chapnavrow">
+                  <button className="backbtn" onClick={() => setOpenChapter(null)}>← Back to Chapter List</button>
+                  {nextChapter && (
+                    <button className="nextchapbtn" onClick={() => setOpenChapter(nextChapter.id)}>
+                      Next: {nextChapter.title} →
+                    </button>
+                  )}
+                </div>
               </div>
             : <ChapterList chapters={chapters} onOpen={setOpenChapter} sectionId={sid} />)
         : isLive
@@ -1125,6 +1134,9 @@ const CSS = `
 .lnotefoot{margin-top:18px;font-size:12px;color:var(--dim);background:var(--card);border:1px dashed var(--parch2);border-radius:10px;padding:12px 14px;line-height:1.5;}
 .backbtn{display:block;border:none;background:none;color:var(--brass);font-size:13px;cursor:pointer;font-family:inherit;font-weight:500;padding:0 0 14px;}
 .backbtn-bottom{padding:18px 0 0;margin-top:6px;border-top:1px solid var(--parch2);width:100%;text-align:left;}
+.chapnavrow{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-top:22px;padding-top:18px;border-top:1px solid var(--parch2);}
+.nextchapbtn{border:1px solid var(--jade);background:var(--card);color:var(--jade);border-radius:8px;padding:11px 18px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit;max-width:340px;text-align:right;}
+.nextchapbtn:hover{background:var(--jade);color:#fff;}
 .chapwrap{}
 .chaplead{font-size:14px;color:var(--ink);margin:0 0 16px;line-height:1.6;}
 .drawer{border:1px solid var(--parch2);border-radius:12px;margin-bottom:12px;overflow:hidden;transition:border-color .15s;background:var(--card);}
