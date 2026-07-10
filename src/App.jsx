@@ -2,37 +2,37 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 
 /* =================================================================
    Pan-Canadian TCM Exam Portal — full navigable shell (single-user)
-   Home · 침구(7) · 허벌(3) · 법규 · 학습도구 · 마이페이지
+   Home · Acupuncture(8) · Herbology(3) · Jurisprudence · Study Tools · My Page
    Acupuncture Points ships with real cards + quiz.
 ================================================================= */
 
 /* ---------------- content model ---------------- */
 const AREAS = [
   {
-    id: "acu", label: "침구", en: "Acupuncture",
+    id: "acu", label: "Acupuncture",
     sections: [
-      { id: "acu-found", label: "TCM Foundations", ko: "기초 이론", hasNote: true },
-      { id: "acu-diag", label: "Diagnostic Methods", ko: "진단방법", hasNote: true },
-      { id: "acu-pattern", label: "Diagnosis", ko: "변증진단", hasNote: true },
-      { id: "acu-points", label: "Acupuncture Points", ko: "경혈", live: true },
-      { id: "acu-selection", label: "Point Selections", ko: "배혈법", hasNote: true },
-      { id: "acu-tech", label: "Techniques", ko: "자침 수기", hasNote: true },
-      { id: "acu-west", label: "Biomedicine", ko: "서양의학" },
-      { id: "acu-safety", label: "Safety", ko: "안전", hasNote: true },
+      { id: "acu-found", label: "TCM Foundations", hasNote: true },
+      { id: "acu-diag", label: "Diagnostic Methods", hasNote: true },
+      { id: "acu-pattern", label: "Diagnosis", hasNote: true },
+      { id: "acu-points", label: "Acupuncture Points", live: true },
+      { id: "acu-selection", label: "Point Selections", hasNote: true },
+      { id: "acu-tech", label: "Techniques", hasNote: true },
+      { id: "acu-west", label: "Biomedicine" },
+      { id: "acu-safety", label: "Safety", hasNote: true },
     ],
   },
   {
-    id: "herb", label: "허벌", en: "Herbology",
+    id: "herb", label: "Herbology",
     sections: [
-      { id: "herb-single", label: "Single Herbs", ko: "본초" },
-      { id: "herb-formula", label: "Formulas", ko: "방제" },
-      { id: "herb-safety", label: "Safety", ko: "안전·상호작용" },
+      { id: "herb-single", label: "Single Herbs" },
+      { id: "herb-formula", label: "Formulas" },
+      { id: "herb-safety", label: "Safety" },
     ],
   },
   {
-    id: "common", label: "공통", en: "Common",
+    id: "common", label: "Common",
     sections: [
-      { id: "juris", label: "Jurisprudence", ko: "법규" },
+      { id: "juris", label: "Jurisprudence" },
     ],
   },
 ];
@@ -97,10 +97,10 @@ const shuffle = (a) => { const x = [...a]; for (let i = x.length - 1; i > 0; i--
 function buildQuestions(points, n = 8) {
   if (!points || points.length === 0) return [];
   const T = [
-    (p) => ({ q: `다음 위치의 혈자리는? "${p.location}"`, c: p.code, pool: points.map(x => x.code) }),
-    (p) => ({ q: `${p.code} (${p.cn}) 는 어느 경락인가요?`, c: p.channel, pool: [...new Set(points.map(x => x.channel))] }),
-    (p) => ({ q: `분류 "${p.category}" 에 해당하는 혈자리는?`, c: p.code, pool: points.map(x => x.code) }),
-    (p) => ({ q: `주치 "${p.indications}" 는 어느 혈자리?`, c: p.code, pool: points.map(x => x.code) }),
+    (p) => ({ q: `Which point is located here: "${p.location}"?`, c: p.code, pool: points.map(x => x.code) }),
+    (p) => ({ q: `Which channel does ${p.code} (${p.cn}) belong to?`, c: p.channel, pool: [...new Set(points.map(x => x.channel))] }),
+    (p) => ({ q: `Which point matches the category "${p.category}"?`, c: p.code, pool: points.map(x => x.code) }),
+    (p) => ({ q: `Which point has these indications: "${p.indications}"?`, c: p.code, pool: points.map(x => x.code) }),
   ];
   const src = shuffle(points), out = [];
   const count = Math.min(n, points.length);
@@ -155,7 +155,7 @@ export default function App() {
     return d;
   }, [examDate]);
 
-  if (!ready) return <div style={{ padding: 40, color: "#6b6455", fontFamily: "sans-serif" }}>불러오는 중…</div>;
+  if (!ready) return <div style={{ padding: 40, color: "#8F8F8C", fontFamily: "-apple-system, BlinkMacSystemFont, 'Inter', sans-serif" }}>Loading…</div>;
 
   return (
     <div className="app">
@@ -163,47 +163,47 @@ export default function App() {
 
       {/* top bar (mobile) */}
       <div className="topbar">
-        <button className="burger" onClick={() => setSidebar(s => !s)} aria-label="메뉴">☰</button>
-        <span className="brandsm">TCM Exam Portal</span>
+        <button className="burger" onClick={() => setSidebar(s => !s)} aria-label="Menu">☰</button>
+        <span className="brandsm">TCM Prep Portal</span>
       </div>
 
       <div className="layout">
         {/* ---------------- sidebar ---------------- */}
         <aside className={`sidebar ${sidebar ? "open" : ""}`}>
           <div className="brand" onClick={() => go("home")}>
-            <span className="brandseal">穴</span>
             <div>
               <div className="brandeye">Pan-Canadian TCM</div>
-              <div className="brandname">Exam Portal</div>
+              <div className="brandname">Prep Portal</div>
             </div>
           </div>
 
-          <NavItem label="홈 · 대시보드" active={nav.view === "home"} onClick={() => go("home")} />
+          <NavItem label="Home · Dashboard" active={nav.view === "home"} onClick={() => go("home")} />
 
           {AREAS.map(area => (
             <div key={area.id} className="navgroup">
               <button className="navgrouphead" onClick={() => setOpenArea(o => o === area.id ? "" : area.id)}>
-                <span>{area.label} <span className="navgroupen">{area.en}</span></span>
+                <span>{area.label}</span>
                 <span className="chev">{openArea === area.id ? "−" : "+"}</span>
               </button>
               {openArea === area.id && area.sections.map(s => (
-                <NavItem key={s.id} sub label={s.label} ko={s.ko} live={s.live}
+                <NavItem key={s.id} sub label={s.label}
                   active={nav.view === "section" && nav.sectionId === s.id}
                   onClick={() => go("section", s.id)} />
               ))}
             </div>
           ))}
 
-          <div className="navdiv" />
-          <div className="navlabel">학습도구</div>
-          <NavItem label="플래시카드" active={nav.view === "cards"} onClick={() => go("cards")} />
-          <NavItem label="퀴즈 · 모의고사" active={nav.view === "quiz"} onClick={() => go("quiz")} />
-          <NavItem label={`오답노트${wrong.length ? ` · ${wrong.length}` : ""}`} active={nav.view === "wrong"} onClick={() => go("wrong")} />
-          <NavItem label="시험지 업로드" active={nav.view === "upload"} onClick={() => go("upload")} />
-          <NavItem label="진도 트래커" active={nav.view === "progress"} onClick={() => go("progress")} />
 
           <div className="navdiv" />
-          <NavItem label="마이페이지" active={nav.view === "mypage"} onClick={() => go("mypage")} />
+          <div className="navlabel">Study Tools</div>
+          <NavItem label="Flashcards" active={nav.view === "cards"} onClick={() => go("cards")} />
+          <NavItem label="Quiz · Mock Exam" active={nav.view === "quiz"} onClick={() => go("quiz")} />
+          <NavItem label={`Wrong Answers${wrong.length ? ` · ${wrong.length}` : ""}`} active={nav.view === "wrong"} onClick={() => go("wrong")} />
+          <NavItem label="Upload Exam" active={nav.view === "upload"} onClick={() => go("upload")} />
+          <NavItem label="Progress Tracker" active={nav.view === "progress"} onClick={() => go("progress")} />
+
+          <div className="navdiv" />
+          <NavItem label="My Page" active={nav.view === "mypage"} onClick={() => go("mypage")} />
         </aside>
 
         {sidebar && <div className="scrim" onClick={() => setSidebar(false)} />}
@@ -225,11 +225,10 @@ export default function App() {
 }
 
 /* ---------------- nav item ---------------- */
-function NavItem({ label, ko, sub, live, active, onClick }) {
+function NavItem({ label, sub, active, onClick }) {
   return (
     <button className={`navitem ${sub ? "navsub" : ""} ${active ? "on" : ""}`} onClick={onClick}>
-      <span className="navitemlabel">{label}{live && <span className="livedot" title="콘텐츠 있음" />}</span>
-      {ko && <span className="navitemko">{ko}</span>}
+      <span className="navitemlabel">{label}</span>
     </button>
   );
 }
@@ -239,36 +238,36 @@ function Home({ go, pointsPct, knownCount, pointsTotal, wrong, dday, examDate, s
   const totalSections = AREAS.reduce((n, a) => n + a.sections.length, 0);
   return (
     <div>
-      <Header eyebrow="대시보드" title="오늘의 공부" seal="始" />
+      <Header eyebrow="Dashboard" title="Study Today" />
       <div className="grid2">
         <div className="panel accent">
-          <div className="panellabel">시험까지</div>
+          <div className="panellabel">Days Until Exam</div>
           {dday !== null ? (
-            <div className="ddaybig">{dday > 0 ? `D-${dday}` : dday === 0 ? "D-DAY" : `+${-dday}일`}</div>
-          ) : <div className="ddaymuted">시험일을 설정하세요</div>}
+            <div className="ddaybig">{dday > 0 ? `D-${dday}` : dday === 0 ? "D-DAY" : `+${-dday}d`}</div>
+          ) : <div className="ddaymuted">Set your exam date</div>}
           <input type="date" value={examDate} onChange={e => setExamDate(e.target.value)} className="dateinput" />
         </div>
         <div className="panel">
-          <div className="panellabel">경혈 암기</div>
+          <div className="panellabel">Points Memorized</div>
           <div className="statbig">{knownCount}<span className="statof"> / {pointsTotal}</span></div>
           <Bar pct={pointsPct} />
-          <button className="linkbtn" onClick={() => go("section", "acu-points")}>경혈 섹션 열기 →</button>
+          <button className="linkbtn" onClick={() => go("section", "acu-points")}>Open Acupuncture Points →</button>
         </div>
       </div>
 
       <div className="grid3">
-        <MiniStat label="전체 섹션" value={`${totalSections}개`} note="침구7 · 허벌3 · 법규1" />
-        <MiniStat label="오답노트" value={`${wrong.length}개`} note={wrong.length ? "복습 필요" : "깨끗함"} onClick={() => go("wrong")} />
-        <MiniStat label="콘텐츠 준비" value="6 / 11" note="Foundations · Diagnostic Methods · Diagnosis · Points · Selections · Techniques" />
+        <MiniStat label="Total Sections" value={`${totalSections}`} note="Acupuncture 8 · Herbology 3 · Jurisprudence 1" />
+        <MiniStat label="Wrong Answers" value={`${wrong.length}`} note={wrong.length ? "Needs review" : "All clear"} onClick={() => go("wrong")} />
+        <MiniStat label="Content Ready" value="6 / 11" note="Foundations · Diagnostic Methods · Diagnosis · Points · Selections · Techniques" />
       </div>
 
       <div className="panel">
-        <div className="panellabel">바로가기</div>
+        <div className="panellabel">Quick Links</div>
         <div className="quickrow">
-          <button className="quickbtn" onClick={() => go("cards")}>플래시카드</button>
-          <button className="quickbtn" onClick={() => go("quiz")}>퀴즈 시작</button>
-          <button className="quickbtn" onClick={() => go("progress")}>진도 보기</button>
-          <button className="quickbtn" onClick={() => go("upload")}>시험지 업로드</button>
+          <button className="quickbtn" onClick={() => go("cards")}>Flashcards</button>
+          <button className="quickbtn" onClick={() => go("quiz")}>Start Quiz</button>
+          <button className="quickbtn" onClick={() => go("progress")}>View Progress</button>
+          <button className="quickbtn" onClick={() => go("upload")}>Upload Exam</button>
         </div>
       </div>
     </div>
@@ -294,39 +293,40 @@ function SectionPage({ sid, go, known, setKnown, bookmarks, setBookmarks, wrong,
 
   return (
     <div>
-      <div className="crumb">{s.area} · {s.en || ""}</div>
+      <div className="crumb">{s.area}</div>
       <div className="sechead">
-        <Header title={s.label} sub={s.ko} inline />
-        <button className={`bmbtn ${bookmarked ? "on" : ""}`} onClick={toggleBm}>{bookmarked ? "★ 즐겨찾기됨" : "☆ 즐겨찾기"}</button>
+        <Header title={s.label} inline />
+        <button className={`bmbtn ${bookmarked ? "on" : ""}`} onClick={toggleBm}>{bookmarked ? "★ Bookmarked" : "☆ Bookmark"}</button>
       </div>
 
       <div className="subtabs">
-        {[["notes", "노트"], ["cards", "플래시카드"], ["bank", "문제은행"], ["prog", "진도"]].map(([k, l]) => (
+        {[["notes", "Notes"], ["cards", "Flashcards"], ["bank", "Question Bank"], ["prog", "Progress"]].map(([k, l]) => (
           <button key={k} className={`subtab ${tab === k ? "on" : ""}`} onClick={() => setTab(k)}>{l}</button>
         ))}
       </div>
 
       {tab === "notes" && (contentLoading && s.hasNote
-        ? <Empty icon="⏳" title="노트 불러오는 중" body="콘텐츠 파일을 불러오고 있어요..." />
+        ? <Empty icon="⏳" title="Loading notes" body="Loading content file..." />
         : chapters
         ? (activeChapter
             ? <div>
-                <button className="backbtn" onClick={() => setOpenChapter(null)}>← 챕터 목록</button>
-                {isPointChapter && <button className="mark" style={{ marginBottom: 14 }} onClick={practiceThisChapter}>이 챕터 플래시카드로 연습 →</button>}
+                <button className="backbtn" onClick={() => setOpenChapter(null)}>← Chapter List</button>
+                {isPointChapter && <button className="mark" style={{ marginBottom: 14 }} onClick={practiceThisChapter}>Practice this chapter with flashcards →</button>}
                 <LectureNote note={activeChapter} />
+                <button className="backbtn backbtn-bottom" onClick={() => setOpenChapter(null)}>← Back to Chapter List</button>
               </div>
             : <ChapterList chapters={chapters} onOpen={setOpenChapter} />)
         : isLive
           ? <PointsNotes points={allPoints} />
-          : <Empty icon="✎" title="노트 준비 중" body={`${s.label} 섹션의 노트가 아직 없어요. 이 자리에 강의 노트가 들어갑니다.`} />)}
+          : <Empty icon="✎" title="Notes coming soon" body={`Notes for ${s.label} are not available yet. Lecture notes will appear here.`} />)}
 
       {tab === "cards" && (isLive
         ? <CardsPlayer known={known} setKnown={setKnown} points={allPoints} filterChapterId={cardFilter} onFilterChange={setCardFilter} embedded />
-        : <Empty icon="▢" title="플래시카드 준비 중" body="이 섹션의 카드 세트가 아직 없어요." />)}
+        : <Empty icon="▢" title="Flashcards coming soon" body="No card set for this section yet." />)}
 
       {tab === "bank" && (isLive
         ? <QuizRunner wrong={wrong} setWrong={setWrong} points={allPoints} filterChapterId={cardFilter} onFilterChange={setCardFilter} embedded />
-        : <Empty icon="?" title="문제은행 준비 중" body="기출·모의고사 문제가 아직 없어요." />)}
+        : <Empty icon="?" title="Question bank coming soon" body="No past-exam or mock questions yet." />)}
 
       {tab === "prog" && <SectionProgress isLive={isLive} known={known} total={allPoints.length} />}
     </div>
@@ -337,7 +337,7 @@ function ChapterList({ chapters, onOpen }) {
   const ready = chapters.filter(c => c.status === "ready").length;
   return (
     <div className="chapwrap">
-      <p className="chaplead">이 과목의 챕터 {chapters.length}개 중 {ready}개 완료. 챕터를 선택하면 노트가 열립니다.</p>
+      <p className="chaplead">{ready} of {chapters.length} chapters ready in this subject. Select a chapter to open its notes.</p>
       <div className="chaplist">
         {chapters.map((c, i) => {
           const isReady = c.status === "ready";
@@ -346,7 +346,6 @@ function ChapterList({ chapters, onOpen }) {
               <span className="chapnum">{String(i + 1).padStart(2, "0")}</span>
               <span className="chaptext">
                 <span className="chaptitle">{c.title} <span className="chapcn">{c.titleCn}</span></span>
-                <span className="chapmeta">{isReady ? "노트 준비됨" : "준비 중"}</span>
               </span>
               <span className="chapchev">{isReady ? "→" : ""}</span>
             </button>
@@ -412,7 +411,7 @@ function LectureNote({ note }) {
       ))}
 
       <div className="lnotefoot">
-        강의 노트에서 추출한 원문입니다. 한글 표기는 참고용 · 최종 확인은 원본 대조를 권장합니다.
+        Extracted from the source lecture notes. Please cross-check against the original material for final verification.
       </div>
     </div>
   );
@@ -422,7 +421,7 @@ function PointsNotes({ points }) {
   const pts = points || [];
   return (
     <div className="notewrap">
-      <p className="notelead">이 섹션은 Pan-Canadian TCM 시험에서 다루는 경혈 {pts.length}개를 다룹니다. 아래는 요약 표이고, 상세 암기는 플래시카드 탭에서 하세요.</p>
+      <p className="notelead">This section covers {pts.length} acupuncture points tested on the Pan-Canadian TCM exam. Below is a summary table — use the Flashcards tab for detailed memorization.</p>
       <div className="notetable">
         {pts.map(p => (
           <div className="noterow" key={p.code}>
@@ -440,14 +439,14 @@ function SectionProgress({ isLive, known, total }) {
   const pct = isLive && total ? Math.round((Object.values(known).filter(Boolean).length / total) * 100) : 0;
   return (
     <div className="panel">
-      <div className="panellabel">이 섹션 진도</div>
+      <div className="panellabel">Progress in This Section</div>
       {isLive ? (
         <>
           <div className="statbig">{pct}<span className="statof">%</span></div>
           <Bar pct={pct} />
-          <p className="dim">플래시카드에서 "외웠어요"로 표시한 경혈 기준입니다.</p>
+          <p className="dim">Based on points marked "Known" in Flashcards.</p>
         </>
-      ) : <p className="dim">콘텐츠가 추가되면 여기에 완료율이 표시됩니다.</p>}
+      ) : <p className="dim">Completion rate will appear here once content is added.</p>}
     </div>
   );
 }
@@ -472,10 +471,10 @@ function CardsPlayer({ known, setKnown, embedded, points, filterChapterId, onFil
   const knownCount = Object.values(known).filter(Boolean).length;
 
   if (allPts.length === 0) {
-    return <Empty icon="⏳" title="혈자리 데이터 불러오는 중" body="잠시만 기다려주세요..." />;
+    return <Empty icon="⏳" title="Loading point data" body="Please wait..." />;
   }
   if (deck.length === 0) {
-    return <Empty icon="▢" title="카드 없음" body="이 필터에 해당하는 혈자리가 없어요." />;
+    return <Empty icon="▢" title="No cards" body="No points match this filter." />;
   }
 
   const card = deck[idx];
@@ -484,19 +483,19 @@ function CardsPlayer({ known, setKnown, embedded, points, filterChapterId, onFil
 
   return (
     <div>
-      {!embedded && <Header eyebrow="학습도구" title="플래시카드" seal="卡" />}
+      {!embedded && <Header eyebrow="Study Tools" title="Flashcards" />}
       {onFilterChange && (
         <div className="toolbar" style={{ marginBottom: 8 }}>
           <select className="ghost" value={filter} onChange={(e) => onFilterChange(e.target.value)}>
-            <option value="all">전체 ({allPts.length})</option>
+            <option value="all">All ({allPts.length})</option>
             {chapterOptions.map(([id, title]) => <option key={id} value={id}>{title}</option>)}
           </select>
         </div>
       )}
       <div className="toolbar">
         <span className="mono">{idx + 1} / {deck.length}</span>
-        <span className="pill">외운 경혈 {knownCount}/{allPts.length}</span>
-        <button className="ghost" onClick={() => { setDeck(shuffle(filtered)); setIdx(0); setFlipped(false); }}>↻ 섞기</button>
+        <span className="pill">Known {knownCount}/{allPts.length}</span>
+        <button className="ghost" onClick={() => { setDeck(shuffle(filtered)); setIdx(0); setFlipped(false); }}>↻ Shuffle</button>
       </div>
 
       <div className="flash" style={{ borderColor: CH_COLOR[card.channel] || "#8A6D3B" }} onClick={() => setFlipped(f => !f)}>
@@ -507,24 +506,24 @@ function CardsPlayer({ known, setKnown, embedded, points, filterChapterId, onFil
             <div className="fcode">{card.code}</div>
             <div className="fcn">{card.cn}</div>
             <div className="fpin">{card.pinyin}</div>
-            <div className="ftap">탭하면 상세 →</div>
+            <div className="ftap">Tap for details →</div>
           </div>
         ) : (
           <div className="flashback">
             <div className="fbhead"><b>{card.code}</b> {card.cn} · {card.pinyin}</div>
-            <KV k="위치" v={card.location} />
-            <KV k="분류" v={card.category} />
-            {card.function && <KV k="작용" v={card.function} />}
-            <KV k="주치" v={card.indications} />
-            {card.caution !== "—" && <KV k="자침" v={card.caution} danger={/caution|contraindicat|avoid/i.test(card.caution)} />}
+            <KV k="Location" v={card.location} />
+            <KV k="Category" v={card.category} />
+            {card.function && <KV k="Function" v={card.function} />}
+            <KV k="Indications" v={card.indications} />
+            {card.caution !== "—" && <KV k="Needling" v={card.caution} danger={/caution|contraindicat|avoid/i.test(card.caution)} />}
           </div>
         )}
       </div>
 
       <div className="cardctrl">
-        <button className="nav" onClick={() => move(-1)}>← 이전</button>
-        <button className={`mark ${known[card.code] ? "on" : ""}`} onClick={() => toggle(card.code)}>{known[card.code] ? "✓ 외웠어요" : "외웠어요"}</button>
-        <button className="nav" onClick={() => move(1)}>다음 →</button>
+        <button className="nav" onClick={() => move(-1)}>← Prev</button>
+        <button className={`mark ${known[card.code] ? "on" : ""}`} onClick={() => toggle(card.code)}>{known[card.code] ? "✓ Known" : "Mark known"}</button>
+        <button className="nav" onClick={() => move(1)}>Next →</button>
       </div>
     </div>
   );
@@ -562,22 +561,22 @@ function QuizRunner({ wrong, setWrong, embedded, points, filterChapterId, onFilt
   const fmt = (s) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
   if (allPts.length === 0) {
-    return <Empty icon="⏳" title="혈자리 데이터 불러오는 중" body="잠시만 기다려주세요..." />;
+    return <Empty icon="⏳" title="Loading point data" body="Please wait..." />;
   }
   if (quiz.length === 0) {
-    return <Empty icon="?" title="문제 없음" body="이 필터에 해당하는 혈자리가 부족해요." />;
+    return <Empty icon="?" title="No questions" body="Not enough points match this filter." />;
   }
 
   if (done) {
     const pct = Math.round((score / quiz.length) * 100);
     return (
       <div>
-        {!embedded && <Header eyebrow="학습도구" title="결과" seal="果" />}
+        {!embedded && <Header eyebrow="Study Tools" title="Results" />}
         <div className="result">
           <div className="resultscore">{score}<span className="resultof"> / {quiz.length}</span></div>
-          <div className="resultpct">{pct}% · 소요 {fmt(sec)}</div>
-          <p className="resultmsg">{pct === 100 ? "완벽해요." : pct >= 70 ? "잘 하고 있어요. 오답노트를 복습하세요." : "오답노트를 먼저 훑어본 뒤 다시 도전하세요."}</p>
-          <button className="mark" onClick={start}>다시 풀기</button>
+          <div className="resultpct">{pct}% · Time {fmt(sec)}</div>
+          <p className="resultmsg">{pct === 100 ? "Perfect score!" : pct >= 70 ? "Great work — review your Wrong Answers list." : "Review your Wrong Answers list, then try again."}</p>
+          <button className="mark" onClick={start}>Retry</button>
         </div>
       </div>
     );
@@ -586,19 +585,19 @@ function QuizRunner({ wrong, setWrong, embedded, points, filterChapterId, onFilt
   const cur = quiz[qi];
   return (
     <div>
-      {!embedded && <Header eyebrow="학습도구" title="퀴즈 · 모의고사" seal="問" />}
+      {!embedded && <Header eyebrow="Study Tools" title="Quiz · Mock Exam" />}
       {onFilterChange && (
         <div className="toolbar" style={{ marginBottom: 8 }}>
           <select className="ghost" value={filter} onChange={(e) => onFilterChange(e.target.value)}>
-            <option value="all">전체 ({allPts.length})</option>
+            <option value="all">All ({allPts.length})</option>
             {chapterOptions.map(([id, title]) => <option key={id} value={id}>{title}</option>)}
           </select>
         </div>
       )}
       <div className="toolbar">
-        <span className="mono">문항 {qi + 1} / {quiz.length}</span>
+        <span className="mono">Question {qi + 1} / {quiz.length}</span>
         <span className="mono timer">⏱ {fmt(sec)}</span>
-        <span className="pill">점수 {score}</span>
+        <span className="pill">Score {score}</span>
       </div>
       <div className="qcard">
         <div className="qtext">{cur.text}</div>
@@ -610,8 +609,8 @@ function QuizRunner({ wrong, setWrong, embedded, points, filterChapterId, onFilt
         </div>
       </div>
       <div className="cardctrl">
-        <button className="ghost" onClick={start}>↻ 새 문제</button>
-        <button className="mark" disabled={!picked} style={{ opacity: picked ? 1 : 0.4 }} onClick={next}>{qi + 1 >= quiz.length ? "결과 보기" : "다음 →"}</button>
+        <button className="ghost" onClick={start}>↻ New Set</button>
+        <button className="mark" disabled={!picked} style={{ opacity: picked ? 1 : 0.4 }} onClick={next}>{qi + 1 >= quiz.length ? "See Results" : "Next →"}</button>
       </div>
     </div>
   );
@@ -622,19 +621,19 @@ function WrongBook({ wrong, setWrong, go }) {
   const clear = () => { setWrong([]); store.set("tcm:wrong", []); };
   return (
     <div>
-      <Header eyebrow="학습도구" title="오답노트" seal="誤" />
+      <Header eyebrow="Study Tools" title="Wrong Answers" />
       <div className="toolbar">
-        <span className="mono">틀린 문항 {wrong.length}개</span>
-        {wrong.length > 0 && <button className="ghost" onClick={clear}>전체 비우기</button>}
+        <span className="mono">{wrong.length} wrong answers</span>
+        {wrong.length > 0 && <button className="ghost" onClick={clear}>Clear All</button>}
       </div>
       {wrong.length === 0
-        ? <Empty icon="✓" title="아직 틀린 문항이 없어요" body="퀴즈를 풀면 틀린 문항이 여기에 자동으로 모입니다." />
+        ? <Empty icon="✓" title="No wrong answers yet" body="Missed quiz questions will automatically appear here." />
         : <div className="wronglist">
           {wrong.map((w, i) => (
             <div className="wrongitem" key={i}>
               <div className="wrongq">{w.q}</div>
-              <div className="wrongline"><span className="wmy">내 답: {w.chose}</span><span className="wok">정답: {w.correct}</span></div>
-              <button className="wlink" onClick={() => go("section", "acu-points")}>→ {w.point} 섹션에서 복습</button>
+              <div className="wrongline"><span className="wmy">Your answer: {w.chose}</span><span className="wok">Correct: {w.correct}</span></div>
+              <button className="wlink" onClick={() => go("section", "acu-points")}>→ Review {w.point} in section</button>
             </div>
           ))}
         </div>}
@@ -646,15 +645,15 @@ function WrongBook({ wrong, setWrong, go }) {
 function UploadStub() {
   return (
     <div>
-      <Header eyebrow="학습도구" title="시험지 업로드" seal="卷" />
+      <Header eyebrow="Study Tools" title="Upload Exam" />
       <div className="uploadbox">
         <div className="uploadicon">⇪</div>
-        <div className="uploadtitle">PDF · 이미지 → 자동 문제화</div>
+        <div className="uploadtitle">PDF · Image → Auto-Generated Questions</div>
         <p className="dim" style={{ maxWidth: 420, margin: "8px auto 0" }}>
-          기출 시험지나 문제 이미지를 올리면 자동으로 구조화된 문제은행으로 바꾸는 기능이에요.
-          이 기능은 파일 저장과 AI 처리를 위한 서버가 필요해서, 로그인·DB 버전(실서비스)에서 켜집니다.
+          Upload past exams or question images and this feature will automatically turn them into a structured question bank.
+          It requires file storage and AI processing on a server, so it will be enabled once the login/database (production) version is live.
         </p>
-        <div className="uploadstub">준비 중 · 실서비스 단계에서 활성화</div>
+        <div className="uploadstub">Coming soon · enabled in the production version</div>
       </div>
     </div>
   );
@@ -664,9 +663,9 @@ function UploadStub() {
 function ProgressTracker({ pointsPct, knownCount, pointsTotal }) {
   return (
     <div>
-      <Header eyebrow="학습도구" title="진도 트래커" seal="度" />
+      <Header eyebrow="Study Tools" title="Progress Tracker" />
       <div className="panel">
-        <div className="panellabel">섹션별 완료율</div>
+        <div className="panellabel">Completion by Section</div>
         {AREAS.flatMap(a => a.sections).map(s => {
           const live = !!s.live, pct = live ? pointsPct : 0;
           return (
@@ -678,7 +677,7 @@ function ProgressTracker({ pointsPct, knownCount, pointsTotal }) {
           );
         })}
       </div>
-      <p className="dim">현재는 Acupuncture Points만 실제 진도가 집계됩니다({knownCount}/{pointsTotal}). 다른 섹션은 콘텐츠 추가 후 자동 반영돼요.</p>
+      <p className="dim">Only Acupuncture Points tracks real progress right now ({knownCount}/{pointsTotal}). Other sections will update automatically once content is added.</p>
     </div>
   );
 }
@@ -689,19 +688,19 @@ function MyPage({ pointsPct, bookmarks, setBookmarks, go, dday }) {
   const remove = (sid) => setBookmarks(prev => { const n = { ...prev, [`sec:${sid}`]: false }; store.set("tcm:bookmarks", n); return n; });
   return (
     <div>
-      <Header eyebrow="마이페이지" title="내 정보" seal="我" />
+      <Header eyebrow="My Page" title="Account" />
       <div className="panel">
-        <div className="panellabel">계정</div>
-        <div className="acctrow"><div className="avatar">나</div><div><div className="acctname">게스트 (로컬)</div><div className="dim">로그인은 실서비스 버전에서 지원됩니다.</div></div></div>
+        <div className="panellabel">Account</div>
+        <div className="acctrow"><div className="avatar">G</div><div><div className="acctname">Guest (Local)</div><div className="dim">Login will be supported in the production version.</div></div></div>
       </div>
       <div className="grid2">
-        <div className="panel"><div className="panellabel">전체 진도</div><div className="statbig">{pointsPct}<span className="statof">%</span></div><Bar pct={pointsPct} /></div>
-        <div className="panel"><div className="panellabel">시험까지</div><div className="ddaybig">{dday !== null ? (dday > 0 ? `D-${dday}` : "D-DAY") : "미설정"}</div></div>
+        <div className="panel"><div className="panellabel">Overall Progress</div><div className="statbig">{pointsPct}<span className="statof">%</span></div><Bar pct={pointsPct} /></div>
+        <div className="panel"><div className="panellabel">Days Until Exam</div><div className="ddaybig">{dday !== null ? (dday > 0 ? `D-${dday}` : "D-DAY") : "Not set"}</div></div>
       </div>
       <div className="panel">
-        <div className="panellabel">즐겨찾기 {bmList.length > 0 && `· ${bmList.length}`}</div>
+        <div className="panellabel">Bookmarks {bmList.length > 0 && `· ${bmList.length}`}</div>
         {bmList.length === 0
-          ? <p className="dim">섹션 페이지에서 ☆ 버튼으로 즐겨찾기를 추가하세요.</p>
+          ? <p className="dim">Add bookmarks using the ☆ button on section pages.</p>
           : bmList.map(sid => (
             <div className="bmrow" key={sid}>
               <button className="bmname" onClick={() => go("section", sid)}>{SECTION_INDEX[sid]?.label || sid}</button>
@@ -714,7 +713,7 @@ function MyPage({ pointsPct, bookmarks, setBookmarks, go, dday }) {
 }
 
 /* ---------------- shared bits ---------------- */
-function Header({ eyebrow, title, sub, seal, inline }) {
+function Header({ eyebrow, title, sub, inline }) {
   return (
     <div className={inline ? "" : "pagehead"}>
       {eyebrow && <div className="eyebrow">{eyebrow}</div>}
@@ -723,7 +722,6 @@ function Header({ eyebrow, title, sub, seal, inline }) {
           <h1 className="pagetitle">{title}</h1>
           {sub && <div className="pagesub">{sub}</div>}
         </div>
-        {seal && <div className="pageseal">{seal}</div>}
       </div>
     </div>
   );
@@ -741,61 +739,58 @@ const Empty = ({ icon, title, body }) => (
 
 /* ---------------- styles ---------------- */
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap');
-:root{--ink:#231F1A;--parch:#EFE9DC;--parch2:#E5DDCB;--card:#FBF8F1;--jade:#3F6B57;--cinnabar:#9A3B32;--brass:#A8863E;--dim:#8a8170;}
-.app{font-family:'Inter',system-ui,sans-serif;color:var(--ink);background:var(--parch);min-height:100%;}
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap');
+:root{--ink:#242423;--parch:#FAFAFA;--parch2:#E7E7E4;--card:#FFFFFF;--jade:#2F8F6F;--cinnabar:#E5484D;--brass:#3B82C4;--dim:#8F8F8C;}
+.app{font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Helvetica,Arial,sans-serif;color:var(--ink);background:var(--parch);min-height:100%;-webkit-font-smoothing:antialiased;}
 .topbar{display:none;align-items:center;gap:12px;padding:12px 16px;background:var(--card);border-bottom:1px solid var(--parch2);position:sticky;top:0;z-index:30;}
 .burger{border:none;background:none;font-size:22px;cursor:pointer;color:var(--ink);}
-.brandsm{font-family:'Noto Serif SC',serif;font-weight:700;}
+.brandsm{font-weight:700;}
 .layout{display:flex;align-items:flex-start;}
 .sidebar{width:248px;flex-shrink:0;background:var(--card);border-right:1px solid var(--parch2);padding:18px 12px 40px;position:sticky;top:0;height:100vh;overflow-y:auto;}
 .brand{display:flex;align-items:center;gap:11px;cursor:pointer;padding:6px 8px 16px;}
-.brandseal{font-family:'Noto Serif SC',serif;color:var(--parch);background:var(--cinnabar);width:40px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;}
-.brandeye{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--brass);font-weight:600;}
-.brandname{font-family:'Noto Serif SC',serif;font-size:18px;font-weight:700;}
-.navitem{display:flex;flex-direction:column;align-items:flex-start;width:100%;text-align:left;border:none;background:none;padding:8px 10px;border-radius:7px;cursor:pointer;color:var(--ink);font-family:inherit;font-size:13.5px;margin-bottom:1px;}
+.brandeye{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);font-weight:600;}
+.brandname{font-size:17px;font-weight:700;letter-spacing:-.01em;}
+.navitem{display:flex;flex-direction:column;align-items:flex-start;width:100%;text-align:left;border:none;background:none;padding:8px 10px;border-radius:7px;cursor:pointer;color:var(--ink);font-family:inherit;font-size:13.5px;margin-bottom:1px;transition:background .12s;}
 .navitem:hover{background:var(--parch);}
 .navitem.on{background:var(--parch2);font-weight:600;}
 .navsub{padding-left:18px;font-size:13px;}
 .navitemlabel{display:flex;align-items:center;gap:6px;}
 .navitemko{font-size:11px;color:var(--dim);margin-top:1px;}
-.livedot{width:6px;height:6px;border-radius:50%;background:var(--jade);display:inline-block;}
 .navgroup{margin-top:4px;}
-.navgrouphead{display:flex;justify-content:space-between;align-items:center;width:100%;border:none;background:none;padding:9px 10px;cursor:pointer;font-family:inherit;font-size:14px;font-weight:600;color:var(--ink);}
+.navgrouphead{display:flex;justify-content:space-between;align-items:center;width:100%;border:none;background:none;padding:9px 10px;cursor:pointer;font-family:inherit;font-size:13.5px;font-weight:600;color:var(--ink);}
 .navgroupen{font-size:11px;color:var(--dim);font-weight:400;}
 .chev{color:var(--dim);}
 .navdiv{height:1px;background:var(--parch2);margin:12px 6px;}
-.navlabel{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--brass);font-weight:600;padding:0 10px 4px;}
+.navlabel{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);font-weight:600;padding:0 10px 4px;}
 .scrim{display:none;}
 .main{flex:1;padding:32px 40px 60px;max-width:820px;}
 .pagehead{margin-bottom:22px;}
-.eyebrow{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--brass);font-weight:600;}
+.eyebrow{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--brass);font-weight:600;}
 .pageheadrow{display:flex;justify-content:space-between;align-items:flex-start;}
-.pagetitle{font-family:'Noto Serif SC',serif;font-size:30px;font-weight:700;margin:5px 0 0;}
+.pagetitle{font-size:26px;font-weight:700;margin:5px 0 0;letter-spacing:-.01em;}
 .pagesub{color:var(--dim);font-size:14px;margin-top:3px;}
-.pageseal{font-family:'Noto Serif SC',serif;color:var(--parch);background:var(--jade);width:46px;height:46px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;}
-.crumb{font-size:12px;color:var(--dim);margin-bottom:4px;letter-spacing:.03em;}
+.crumb{font-size:12px;color:var(--dim);margin-bottom:4px;letter-spacing:.02em;}
 .sechead{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:18px;}
 .bmbtn{border:1px solid var(--parch2);background:var(--card);border-radius:20px;padding:6px 14px;font-size:12.5px;cursor:pointer;color:var(--dim);font-family:inherit;}
 .bmbtn.on{color:var(--brass);border-color:var(--brass);font-weight:600;}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
 .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px;}
-.panel{background:var(--card);border:1px solid var(--parch2);border-radius:14px;padding:20px;margin-bottom:14px;}
+.panel{background:var(--card);border:1px solid var(--parch2);border-radius:12px;padding:20px;margin-bottom:14px;}
 .panel.accent{border-color:var(--jade);}
-.panellabel{font-size:12px;font-weight:600;color:var(--jade);letter-spacing:.04em;margin-bottom:10px;}
-.ddaybig{font-family:'IBM Plex Mono',monospace;font-size:40px;font-weight:600;color:var(--cinnabar);line-height:1;}
+.panellabel{font-size:12px;font-weight:600;color:var(--jade);letter-spacing:.03em;margin-bottom:10px;}
+.ddaybig{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:38px;font-weight:600;color:var(--cinnabar);line-height:1;}
 .ddaymuted{font-size:15px;color:var(--dim);padding:8px 0;}
 .dateinput{margin-top:12px;border:1px solid var(--parch2);border-radius:7px;padding:7px 10px;font-family:inherit;font-size:13px;color:var(--ink);background:var(--parch);}
-.statbig{font-family:'IBM Plex Mono',monospace;font-size:38px;font-weight:600;color:var(--jade);line-height:1;}
-.statof{font-size:20px;color:#b3aa96;}
-.bar{height:8px;background:var(--parch2);border-radius:5px;overflow:hidden;margin-top:12px;}
+.statbig{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:36px;font-weight:600;color:var(--jade);line-height:1;}
+.statof{font-size:19px;color:var(--dim);}
+.bar{height:7px;background:var(--parch2);border-radius:5px;overflow:hidden;margin-top:12px;}
 .barfill{height:100%;background:var(--jade);border-radius:5px;transition:width .4s;}
 .linkbtn{border:none;background:none;color:var(--brass);font-size:13px;cursor:pointer;padding:12px 0 0;font-family:inherit;font-weight:500;}
 .ministat{text-align:left;background:var(--card);border:1px solid var(--parch2);border-radius:12px;padding:16px;font-family:inherit;cursor:default;}
 .ministat.click{cursor:pointer;}
 .ministat.click:hover{border-color:var(--jade);}
 .ministatlabel{font-size:12px;color:var(--dim);}
-.ministatvalue{font-family:'IBM Plex Mono',monospace;font-size:24px;font-weight:600;margin:4px 0 2px;}
+.ministatvalue{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:22px;font-weight:600;margin:4px 0 2px;}
 .ministatnote{font-size:12px;color:var(--brass);}
 .quickrow{display:flex;gap:10px;flex-wrap:wrap;}
 .quickbtn{border:1px solid var(--parch2);background:var(--parch);border-radius:8px;padding:11px 16px;font-size:13.5px;cursor:pointer;color:var(--ink);font-family:inherit;font-weight:500;}
@@ -804,68 +799,68 @@ const CSS = `
 .subtab{border:none;background:none;padding:10px 14px;font-size:14px;font-weight:500;color:var(--dim);cursor:pointer;border-bottom:2px solid transparent;font-family:inherit;}
 .subtab.on{color:var(--ink);border-bottom:2px solid var(--jade);font-weight:600;}
 .toolbar{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;}
-.mono{font-family:'IBM Plex Mono',monospace;font-size:13px;color:#6b6455;}
+.mono{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:13px;color:var(--dim);}
 .timer{color:var(--cinnabar);}
 .pill{font-size:12px;background:var(--parch2);padding:4px 10px;border-radius:20px;color:var(--jade);font-weight:600;margin-left:auto;}
-.ghost{border:1px solid var(--parch2);background:transparent;border-radius:6px;padding:5px 12px;font-size:13px;cursor:pointer;color:#6b6455;font-family:inherit;}
-.flash{position:relative;background:var(--card);border:2px solid;border-radius:14px;padding:34px 26px;min-height:280px;cursor:pointer;box-shadow:0 6px 24px rgba(60,50,30,.08);}
-.chtag{position:absolute;top:-1px;left:20px;color:var(--parch);font-size:11px;font-weight:600;padding:4px 12px;border-radius:0 0 8px 8px;}
+.ghost{border:1px solid var(--parch2);background:transparent;border-radius:6px;padding:5px 12px;font-size:13px;cursor:pointer;color:var(--dim);font-family:inherit;}
+.flash{position:relative;background:var(--card);border:2px solid;border-radius:14px;padding:34px 26px;min-height:280px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.06);}
+.chtag{position:absolute;top:-1px;left:20px;color:#fff;font-size:11px;font-weight:600;padding:4px 12px;border-radius:0 0 8px 8px;}
 .knowndot{position:absolute;top:14px;right:16px;color:var(--jade);font-size:13px;}
 .flashfront{display:flex;flex-direction:column;align-items:center;justify-content:center;height:240px;gap:5px;}
-.fcode{font-family:'IBM Plex Mono',monospace;font-size:44px;font-weight:600;}
-.fcn{font-family:'Noto Serif SC',serif;font-size:38px;font-weight:600;color:var(--cinnabar);}
-.fpin{font-size:17px;color:#6b6455;font-style:italic;}
-.ftap{font-size:12px;color:var(--brass);margin-top:16px;letter-spacing:.05em;}
+.fcode{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:42px;font-weight:600;}
+.fcn{font-size:34px;font-weight:600;color:var(--ink);}
+.fpin{font-size:16px;color:var(--dim);font-style:italic;}
+.ftap{font-size:12px;color:var(--brass);margin-top:16px;letter-spacing:.04em;}
 .flashback{display:flex;flex-direction:column;gap:2px;}
-.fbhead{padding-bottom:11px;margin-bottom:5px;border-bottom:1px solid var(--parch2);font-family:'Noto Serif SC',serif;font-size:17px;}
+.fbhead{padding-bottom:11px;margin-bottom:5px;border-bottom:1px solid var(--parch2);font-size:16px;font-weight:600;}
 .kv{display:flex;gap:12px;padding:8px 0;border-bottom:1px solid var(--parch);}
 .kvk{min-width:38px;font-size:12px;font-weight:600;color:var(--jade);}
 .kvk.danger{color:var(--cinnabar);}
-.kvv{font-size:14px;line-height:1.5;color:#3a352c;flex:1;}
+.kvv{font-size:14px;line-height:1.5;color:var(--ink);flex:1;}
 .cardctrl{display:flex;gap:10px;margin-top:18px;align-items:center;justify-content:center;flex-wrap:wrap;}
 .nav{border:1px solid var(--parch2);background:var(--card);border-radius:8px;padding:11px 18px;font-size:14px;cursor:pointer;color:var(--ink);font-family:inherit;font-weight:500;}
 .mark{border:none;background:var(--jade);color:#fff;border-radius:8px;padding:11px 22px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;}
 .mark.on{background:var(--brass);}
-.qcard{background:var(--card);border:1px solid var(--parch2);border-radius:14px;padding:22px;}
-.qtext{font-family:'Noto Serif SC',serif;font-size:16px;line-height:1.55;font-weight:500;margin-bottom:16px;}
+.qcard{background:var(--card);border:1px solid var(--parch2);border-radius:12px;padding:22px;}
+.qtext{font-size:16px;line-height:1.55;font-weight:500;margin-bottom:16px;}
 .qopts{display:flex;flex-direction:column;gap:9px;}
 .qopt{text-align:left;border:1px solid var(--parch2);background:var(--parch);border-radius:9px;padding:12px 15px;font-size:14.5px;cursor:pointer;color:var(--ink);font-family:inherit;}
-.qopt.ok{background:#E3EDE6;border-color:var(--jade);color:var(--jade);font-weight:600;}
-.qopt.bad{background:#F3E2DF;border-color:var(--cinnabar);color:var(--cinnabar);font-weight:600;}
-.result{background:var(--card);border:1px solid var(--parch2);border-radius:14px;padding:34px;text-align:center;}
-.resultscore{font-family:'IBM Plex Mono',monospace;font-size:60px;font-weight:600;color:var(--jade);line-height:1;}
-.resultof{font-size:26px;color:#b3aa96;}
-.resultpct{font-family:'IBM Plex Mono',monospace;font-size:14px;color:#6b6455;margin-top:8px;}
-.resultmsg{font-size:15px;line-height:1.6;color:#3a352c;margin:16px auto 18px;max-width:360px;}
+.qopt.ok{background:#E7F5EF;border-color:var(--jade);color:var(--jade);font-weight:600;}
+.qopt.bad{background:#FDECEC;border-color:var(--cinnabar);color:var(--cinnabar);font-weight:600;}
+.result{background:var(--card);border:1px solid var(--parch2);border-radius:12px;padding:34px;text-align:center;}
+.resultscore{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:56px;font-weight:600;color:var(--jade);line-height:1;}
+.resultof{font-size:24px;color:var(--dim);}
+.resultpct{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:14px;color:var(--dim);margin-top:8px;}
+.resultmsg{font-size:15px;line-height:1.6;color:var(--ink);margin:16px auto 18px;max-width:360px;}
 .wronglist{display:flex;flex-direction:column;gap:12px;}
 .wrongitem{background:var(--card);border:1px solid var(--parch2);border-left:3px solid var(--cinnabar);border-radius:10px;padding:14px 16px;}
-.wrongq{font-size:14.5px;line-height:1.5;margin-bottom:8px;color:#3a352c;}
+.wrongq{font-size:14.5px;line-height:1.5;margin-bottom:8px;color:var(--ink);}
 .wrongline{display:flex;gap:16px;font-size:13px;margin-bottom:6px;flex-wrap:wrap;}
 .wmy{color:var(--cinnabar);} .wok{color:var(--jade);font-weight:600;}
 .wlink{border:none;background:none;font-size:13px;color:var(--brass);cursor:pointer;font-weight:500;font-family:inherit;padding:0;}
 .notewrap{}
-.notelead{font-size:14.5px;line-height:1.6;color:#3a352c;margin:0 0 16px;}
+.notelead{font-size:14.5px;line-height:1.6;color:var(--ink);margin:0 0 16px;}
 .notetable{background:var(--card);border:1px solid var(--parch2);border-radius:12px;overflow:hidden;}
 .noterow{display:flex;align-items:center;gap:14px;padding:11px 16px;border-bottom:1px solid var(--parch);}
 .noterow:last-child{border-bottom:none;}
-.notecode{font-family:'IBM Plex Mono',monospace;font-weight:600;min-width:56px;}
-.notecn{font-family:'Noto Serif SC',serif;font-size:16px;min-width:44px;}
-.notecat{font-size:13px;color:#6b6455;}
-.empty{text-align:center;padding:48px 20px;background:var(--card);border:1px dashed var(--parch2);border-radius:14px;}
-.emptyicon{font-size:30px;color:var(--brass);margin-bottom:10px;}
+.notecode{font-family:'IBM Plex Mono',ui-monospace,monospace;font-weight:600;min-width:56px;}
+.notecn{font-size:15px;min-width:44px;color:var(--dim);}
+.notecat{font-size:13px;color:var(--dim);}
+.empty{text-align:center;padding:48px 20px;background:var(--card);border:1px dashed var(--parch2);border-radius:12px;}
+.emptyicon{font-size:28px;color:var(--brass);margin-bottom:10px;}
 .emptytitle{font-size:16px;font-weight:600;margin-bottom:6px;}
 .emptybody{font-size:14px;color:var(--dim);max-width:420px;margin:0 auto;line-height:1.55;}
-.uploadbox{background:var(--card);border:1px dashed var(--brass);border-radius:16px;padding:44px 24px;text-align:center;}
-.uploadicon{font-size:38px;color:var(--brass);}
+.uploadbox{background:var(--card);border:1px dashed var(--brass);border-radius:14px;padding:44px 24px;text-align:center;}
+.uploadicon{font-size:36px;color:var(--brass);}
 .uploadtitle{font-size:17px;font-weight:600;margin-top:10px;}
-.uploadstub{display:inline-block;margin-top:18px;background:var(--parch2);color:#6b6455;font-size:12.5px;padding:6px 14px;border-radius:20px;}
+.uploadstub{display:inline-block;margin-top:18px;background:var(--parch2);color:var(--dim);font-size:12.5px;padding:6px 14px;border-radius:20px;}
 .progrow{display:flex;align-items:center;gap:14px;padding:9px 0;border-bottom:1px solid var(--parch);}
 .progrow:last-child{border-bottom:none;}
 .progname{flex:1;font-size:14px;}
 .progko{font-size:12px;color:var(--dim);margin-left:6px;}
 .progbarwrap{width:120px;height:7px;background:var(--parch2);border-radius:4px;overflow:hidden;}
 .progbar{height:100%;background:var(--jade);border-radius:4px;}
-.progpct{font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#6b6455;min-width:36px;text-align:right;}
+.progpct{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12.5px;color:var(--dim);min-width:36px;text-align:right;}
 .dim{font-size:13px;color:var(--dim);line-height:1.55;margin:10px 0 0;}
 .acctrow{display:flex;align-items:center;gap:14px;}
 .avatar{width:44px;height:44px;border-radius:50%;background:var(--jade);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;}
@@ -876,14 +871,14 @@ const CSS = `
 .bmremove{border:none;background:none;color:var(--dim);cursor:pointer;font-size:14px;}
 .lnote{}
 .lnotehead{border-bottom:2px solid var(--parch2);padding-bottom:12px;margin-bottom:8px;}
-.lnotetitle{font-family:'Noto Serif SC',serif;font-size:20px;font-weight:700;}
-.lnotecn{font-size:15px;color:var(--cinnabar);font-weight:600;margin-left:6px;}
-.lnotesrc{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--dim);margin-top:4px;}
+.lnotetitle{font-size:20px;font-weight:700;}
+.lnotecn{font-size:14px;color:var(--dim);font-weight:500;margin-left:6px;}
+.lnotesrc{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px;color:var(--dim);margin-top:4px;}
 .lblock{padding:18px 0;border-bottom:1px solid var(--parch);}
 .lblock:last-of-type{border-bottom:none;}
-.lblockhead{font-family:'Noto Serif SC',serif;font-size:16px;font-weight:600;margin:0 0 8px;color:var(--ink);}
-.lblockcn{color:var(--brass);font-size:14px;font-weight:400;}
-.llead{font-size:14px;line-height:1.6;color:#3a352c;margin:0 0 12px;background:var(--card);border-left:3px solid var(--jade);border-radius:0;padding:10px 14px;}
+.lblockhead{font-size:16px;font-weight:600;margin:0 0 8px;color:var(--ink);}
+.lblockcn{color:var(--dim);font-size:14px;font-weight:400;}
+.llead{font-size:14px;line-height:1.6;color:var(--ink);margin:0 0 12px;background:var(--parch);border-left:3px solid var(--jade);border-radius:0;padding:10px 14px;}
 .lfig{margin:6px 0 14px;}
 .lfigimg{max-width:100%;display:block;border:1px solid var(--parch2);border-radius:10px;background:var(--card);}
 .lfigcap{font-size:12px;color:var(--dim);margin-top:6px;line-height:1.4;}
@@ -893,31 +888,31 @@ const CSS = `
 .litem:before{content:"";position:absolute;left:2px;top:15px;width:6px;height:6px;border-radius:50%;background:var(--jade);}
 .litemmain{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;}
 .litemt{font-size:14.5px;line-height:1.5;color:var(--ink);}
-.litemcn{font-family:'Noto Serif SC',serif;font-size:13px;color:var(--cinnabar);}
+.litemcn{font-size:13px;color:var(--dim);}
 .litemko{font-size:12px;color:var(--dim);}
-.litemdetail{font-size:13px;line-height:1.55;color:#6b6455;margin-top:4px;}
+.litemdetail{font-size:13px;line-height:1.55;color:var(--dim);margin-top:4px;}
 .ltablewrap{overflow-x:auto;margin-top:6px;border:1px solid var(--parch2);border-radius:10px;}
 .ltable{border-collapse:collapse;width:100%;font-size:13px;background:var(--card);}
 .ltable th,.ltable td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--parch);border-right:1px solid var(--parch);vertical-align:top;line-height:1.45;}
-.ltable thead th{background:var(--parch2);font-weight:600;color:var(--jade);font-family:'Noto Serif SC',serif;white-space:nowrap;}
-.ltable tbody th.ltrowhead{background:#F4EFE3;font-weight:600;color:#3a352c;white-space:nowrap;}
+.ltable thead th{background:var(--parch);font-weight:600;color:var(--jade);white-space:nowrap;}
+.ltable tbody th.ltrowhead{background:var(--parch);font-weight:600;color:var(--ink);white-space:nowrap;}
 .ltable tr:last-child th,.ltable tr:last-child td{border-bottom:none;}
 .ltable th:last-child,.ltable td:last-child{border-right:none;}
-.ltcorner{background:var(--parch2)!important;}
+.ltcorner{background:var(--parch)!important;}
 .lnotefoot{margin-top:18px;font-size:12px;color:var(--dim);background:var(--card);border:1px dashed var(--parch2);border-radius:10px;padding:12px 14px;line-height:1.5;}
 .backbtn{border:none;background:none;color:var(--brass);font-size:13px;cursor:pointer;font-family:inherit;font-weight:500;padding:0 0 14px;}
+.backbtn-bottom{padding:18px 0 0;margin-top:6px;border-top:1px solid var(--parch2);width:100%;text-align:left;}
 .chapwrap{}
-.chaplead{font-size:14px;color:#3a352c;margin:0 0 16px;line-height:1.6;}
+.chaplead{font-size:14px;color:var(--ink);margin:0 0 16px;line-height:1.6;}
 .chaplist{display:flex;flex-direction:column;gap:8px;}
-.chapitem{display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:var(--card);border:1px solid var(--parch2);border-radius:12px;padding:16px 18px;cursor:pointer;font-family:inherit;}
+.chapitem{display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:var(--card);border:1px solid var(--parch2);border-radius:10px;padding:16px 18px;cursor:pointer;font-family:inherit;transition:border-color .12s;}
 .chapitem.ready:hover{border-color:var(--jade);}
 .chapitem.coming{opacity:.55;cursor:default;}
-.chapnum{font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600;color:var(--brass);min-width:26px;}
+.chapnum{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:15px;font-weight:600;color:var(--dim);min-width:26px;}
 .chaptext{flex:1;display:flex;flex-direction:column;gap:3px;}
-.chaptitle{font-family:'Noto Serif SC',serif;font-size:16px;font-weight:600;color:var(--ink);}
-.chapcn{font-size:13px;color:var(--cinnabar);font-weight:400;margin-left:4px;}
+.chaptitle{font-size:15.5px;font-weight:600;color:var(--ink);}
+.chapcn{font-size:13px;color:var(--dim);font-weight:400;margin-left:4px;}
 .chapmeta{font-size:12px;color:var(--dim);}
-.chapitem.ready .chapmeta{color:var(--jade);}
 .chapchev{color:var(--jade);font-size:16px;}
 @media(max-width:760px){
   .topbar{display:flex;}
@@ -926,6 +921,6 @@ const CSS = `
   .scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:35;}
   .main{padding:22px 18px 50px;}
   .grid2,.grid3{grid-template-columns:1fr;}
-  .pagetitle{font-size:25px;}
+  .pagetitle{font-size:23px;}
 }
 `;
