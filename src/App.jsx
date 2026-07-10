@@ -17,7 +17,7 @@ const AREAS = [
       { id: "acu-points", label: "Acupuncture Points", live: true },
       { id: "acu-selection", label: "Point Selections", hasNote: true },
       { id: "acu-tech", label: "Techniques", hasNote: true },
-      { id: "acu-west", label: "Biomedicine" },
+      { id: "acu-extras", label: "Extras", hasNote: true },
       { id: "acu-safety", label: "Safety", hasNote: true },
     ],
   },
@@ -354,7 +354,7 @@ function Home({ go, pointsPct, knownCount, pointsTotal, wrong, dday, examDate, s
       <div className="grid3">
         <MiniStat label="Total Sections" value={`${totalSections}`} note="Acupuncture 8 · Herbology 3 · Jurisprudence 1" />
         <MiniStat label="Wrong Answers" value={`${wrong.length}`} note={wrong.length ? "Needs review" : "All clear"} onClick={() => go("wrong")} />
-        <MiniStat label="Content Ready" value="6 / 11" note="Foundations · Diagnostic Methods · Diagnosis · Points · Selections · Techniques" />
+        <MiniStat label="Content Ready" value="7 / 11" note="Foundations · Diagnostic Methods · Diagnosis · Points · Selections · Techniques · Extras" />
       </div>
 
       <div className="panel">
