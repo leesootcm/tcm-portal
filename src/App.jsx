@@ -18,7 +18,7 @@ const AREAS = [
       { id: "acu-selection", label: "Point Selections", ko: "배혈법", hasNote: true },
       { id: "acu-tech", label: "Techniques", ko: "자침 수기", hasNote: true },
       { id: "acu-west", label: "Biomedicine", ko: "서양의학" },
-      { id: "acu-safety", label: "Safety", ko: "안전" },
+      { id: "acu-safety", label: "Safety", ko: "안전", hasNote: true },
     ],
   },
   {
