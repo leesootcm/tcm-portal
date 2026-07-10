@@ -58,22 +58,55 @@ function deriveAllPoints(chapterData) {
             iInd = cols.indexOf("Indications"), iNeed = cols.indexOf("Needling");
       if (iPt < 0 || iLoc < 0) return;
       b.table.rows.forEach(row => {
-        const raw = row[iPt] || "";
-        const code = raw.replace("★", "").trim();
+        const rawPt = row[iPt] || "";
+        const code = rawPt.replace("★", "").trim();
         const m = code.match(/^([A-Z]+)(\d+)/);
         const channel = m ? m[1] : code;
         const name = iName >= 0 ? (row[iName] || "") : "";
         const parts = name.split(" ");
         const cn = parts[0] || "";
         const pinyin = parts.slice(1).join(" ") || "";
+        const fields = [
+          { label: "Location", value: row[iLoc] || "" },
+          { label: "Category", value: iCat >= 0 ? (row[iCat] || "") : "" },
+        ];
+        if (iFunc >= 0 && row[iFunc]) fields.push({ label: "Function", value: row[iFunc] });
+        fields.push({ label: "Indications", value: iInd >= 0 ? (row[iInd] || "") : "" });
+        const caution = iNeed >= 0 ? (row[iNeed] || "—") : "—";
+        if (caution !== "—") fields.push({ label: "Needling", value: caution, danger: /caution|contraindicat|avoid/i.test(caution) });
         out.push({
-          code, channel, chapterId: ch.id, chapterTitle: ch.title,
-          cn, pinyin,
-          category: iCat >= 0 ? row[iCat] : "",
-          function: iFunc >= 0 ? row[iFunc] : "",
-          indications: iInd >= 0 ? row[iInd] : "",
-          location: row[iLoc] || "",
-          caution: iNeed >= 0 ? (row[iNeed] || "—") : "—",
+          code, cn, pinyin, tag: channel, tagColor: CH_COLOR[channel] || "#8A6D3B",
+          chapterId: ch.id, chapterTitle: ch.title, sectionId: "acu-points",
+          fields: fields.filter(f => f.value),
+        });
+      });
+    });
+  });
+  return out;
+}
+
+/* ---------------- generic table-derived cards (herbs, formulas, and any future table-based section) ------- */
+const CARD_PALETTE = ["#4A6B7A","#B08D3C","#A85A2E","#8A6D3B","#9A3B32","#7A4B63","#6E7A3B","#3A5A78","#2F4858","#A67C3D","#5B7A4B","#3F6B57","#8A3B5B","#6B5B95"];
+
+function deriveGenericCards(chapterData, sectionId) {
+  if (!chapterData) return [];
+  const chapters = chapterData[sectionId] || [];
+  const out = [];
+  chapters.forEach((ch, chIdx) => {
+    const tagColor = CARD_PALETTE[chIdx % CARD_PALETTE.length];
+    (ch.blocks || []).forEach(b => {
+      if (!b.table) return;
+      const cols = b.table.cols;
+      b.table.rows.forEach(row => {
+        const raw = row[0] || "";
+        const [line1, line2] = raw.split("\n");
+        const code = (line1 || raw).trim();
+        const cn = (line2 || "").trim();
+        const fields = cols.slice(1).map((label, i) => ({ label, value: row[i + 1] || "" })).filter(f => f.value);
+        out.push({
+          code, cn, pinyin: "", tag: (b.headingCn || ch.titleCn || "").slice(0, 2) || "·", tagColor,
+          chapterId: ch.id, chapterTitle: ch.title, sectionId,
+          fields,
         });
       });
     });
@@ -94,20 +127,26 @@ const store = {
 };
 const shuffle = (a) => { const x = [...a]; for (let i = x.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [x[i], x[j]] = [x[j], x[i]]; } return x; };
 
-function buildQuestions(points, n = 8) {
-  if (!points || points.length === 0) return [];
-  const T = [
-    (p) => ({ q: `Which point is located here: "${p.location}"?`, c: p.code, pool: points.map(x => x.code) }),
-    (p) => ({ q: `Which channel does ${p.code} (${p.cn}) belong to?`, c: p.channel, pool: [...new Set(points.map(x => x.channel))] }),
-    (p) => ({ q: `Which point matches the category "${p.category}"?`, c: p.code, pool: points.map(x => x.code) }),
-    (p) => ({ q: `Which point has these indications: "${p.indications}"?`, c: p.code, pool: points.map(x => x.code) }),
-  ];
-  const src = shuffle(points), out = [];
-  const count = Math.min(n, points.length);
+function buildQuestions(cards, n = 8) {
+  if (!cards || cards.length === 0) return [];
+  const src = shuffle(cards), out = [];
+  const count = Math.min(n, cards.length);
   for (let i = 0; i < count; i++) {
-    const p = src[i % src.length], t = T[Math.floor(Math.random() * T.length)](p);
-    const opts = shuffle([t.c, ...shuffle(t.pool.filter(o => o !== t.c)).slice(0, 3)]);
-    out.push({ id: `${p.code}-${i}`, text: t.q, correct: t.c, options: opts, point: p.code });
+    const c = src[i % src.length];
+    const validFields = (c.fields || []).filter(f => f.value && f.value.length > 0 && f.value.length < 220);
+    let q, correct, pool;
+    if (validFields.length > 0 && Math.random() < 0.75) {
+      const f = validFields[Math.floor(Math.random() * validFields.length)];
+      q = `Which one has this ${f.label}: "${f.value}"?`;
+      correct = c.code;
+      pool = cards.map(x => x.code);
+    } else {
+      q = `Which chapter does ${c.code}${c.cn ? " (" + c.cn + ")" : ""} belong to?`;
+      correct = c.chapterTitle;
+      pool = [...new Set(cards.map(x => x.chapterTitle))];
+    }
+    const opts = shuffle([correct, ...shuffle(pool.filter(o => o !== correct)).slice(0, 3)]);
+    out.push({ id: `${c.code}-${i}`, text: q, correct, options: opts, point: c.code, sectionId: c.sectionId });
   }
   return out;
 }
@@ -145,9 +184,18 @@ export default function App() {
   })(); }, []);
 
   const go = (v, sectionId) => { setNav({ view: v, sectionId }); setSidebar(false); };
-  const knownCount = Object.values(known).filter(Boolean).length;
   const allPoints = useMemo(() => deriveAllPoints(chapterData), [chapterData]);
+  const knownCount = useMemo(() => allPoints.filter(p => known[p.code]).length, [known, allPoints]);
   const pointsPct = allPoints.length ? Math.round((knownCount / allPoints.length) * 100) : 0;
+
+  const herbSingleCards = useMemo(() => deriveGenericCards(chapterData, "herb-single"), [chapterData]);
+  const herbFormulaCards = useMemo(() => deriveGenericCards(chapterData, "herb-formula"), [chapterData]);
+  const cardsBySection = useMemo(() => ({
+    "acu-points": allPoints,
+    "herb-single": herbSingleCards,
+    "herb-formula": herbFormulaCards,
+  }), [allPoints, herbSingleCards, herbFormulaCards]);
+  const allCards = useMemo(() => [...allPoints, ...herbSingleCards, ...herbFormulaCards], [allPoints, herbSingleCards, herbFormulaCards]);
 
   const dday = useMemo(() => {
     if (!examDate) return null;
@@ -211,12 +259,12 @@ export default function App() {
         {/* ---------------- main ---------------- */}
         <main className="main">
           {nav.view === "home" && <Home go={go} pointsPct={pointsPct} knownCount={knownCount} pointsTotal={allPoints.length} wrong={wrong} dday={dday} examDate={examDate} setExamDate={(v) => { setExamDate(v); store.set("tcm:examDate", v); }} />}
-          {nav.view === "section" && <SectionPage sid={nav.sectionId} go={go} known={known} setKnown={setKnown} bookmarks={bookmarks} setBookmarks={setBookmarks} wrong={wrong} setWrong={setWrong} chapterData={chapterData} allPoints={allPoints} />}
-          {nav.view === "cards" && <CardsPlayer known={known} setKnown={setKnown} points={allPoints} />}
-          {nav.view === "quiz" && <QuizRunner wrong={wrong} setWrong={setWrong} points={allPoints} />}
+          {nav.view === "section" && <SectionPage sid={nav.sectionId} go={go} known={known} setKnown={setKnown} bookmarks={bookmarks} setBookmarks={setBookmarks} wrong={wrong} setWrong={setWrong} chapterData={chapterData} allPoints={allPoints} cardsBySection={cardsBySection} />}
+          {nav.view === "cards" && <CardsPlayer known={known} setKnown={setKnown} points={allCards} />}
+          {nav.view === "quiz" && <QuizRunner wrong={wrong} setWrong={setWrong} points={allCards} />}
           {nav.view === "wrong" && <WrongBook wrong={wrong} setWrong={setWrong} go={go} />}
           {nav.view === "upload" && <UploadStub />}
-          {nav.view === "progress" && <ProgressTracker pointsPct={pointsPct} knownCount={knownCount} pointsTotal={allPoints.length} />}
+          {nav.view === "progress" && <ProgressTracker knownCount={knownCount} pointsTotal={allPoints.length} cardsBySection={cardsBySection} known={known} />}
           {nav.view === "mypage" && <MyPage pointsPct={pointsPct} pointsTotal={allPoints.length} bookmarks={bookmarks} setBookmarks={setBookmarks} go={go} dday={dday} />}
         </main>
       </div>
@@ -275,12 +323,13 @@ function Home({ go, pointsPct, knownCount, pointsTotal, wrong, dday, examDate, s
 }
 
 /* ---------------- SECTION page (4 sub-tabs) ---------------- */
-function SectionPage({ sid, go, known, setKnown, bookmarks, setBookmarks, wrong, setWrong, chapterData, allPoints }) {
+function SectionPage({ sid, go, known, setKnown, bookmarks, setBookmarks, wrong, setWrong, chapterData, allPoints, cardsBySection }) {
   const s = SECTION_INDEX[sid];
   const [tab, setTab] = useState("notes");
   const [openChapter, setOpenChapter] = useState(null);
   const [cardFilter, setCardFilter] = useState("all");
-  const isLive = !!s.live;
+  const sectionCards = (cardsBySection && cardsBySection[sid]) || [];
+  const isLive = sectionCards.length > 0;
   const contentLoading = chapterData === null;
   const chapters = chapterData ? chapterData[sid] : null;
   const bmKey = `sec:${sid}`;
@@ -288,7 +337,7 @@ function SectionPage({ sid, go, known, setKnown, bookmarks, setBookmarks, wrong,
   const toggleBm = () => setBookmarks(prev => { const n = { ...prev, [bmKey]: !prev[bmKey] }; store.set("tcm:bookmarks", n); return n; });
 
   const activeChapter = chapters && openChapter ? chapters.find(c => c.id === openChapter) : null;
-  const isPointChapter = activeChapter && POINT_CHAPTER_IDS.includes(activeChapter.id);
+  const isCardChapter = isLive && activeChapter && (activeChapter.blocks || []).some(b => b.table);
   const practiceThisChapter = () => { setCardFilter(activeChapter.id); setTab("cards"); };
 
   return (
@@ -311,7 +360,7 @@ function SectionPage({ sid, go, known, setKnown, bookmarks, setBookmarks, wrong,
         ? (activeChapter
             ? <div>
                 <button className="backbtn" onClick={() => setOpenChapter(null)}>← Chapter List</button>
-                {isPointChapter && <button className="mark" style={{ marginBottom: 14 }} onClick={practiceThisChapter}>Practice this chapter with flashcards →</button>}
+                {isCardChapter && <button className="mark" style={{ marginBottom: 14 }} onClick={practiceThisChapter}>Practice this chapter with flashcards →</button>}
                 <LectureNote note={activeChapter} />
                 <button className="backbtn backbtn-bottom" onClick={() => setOpenChapter(null)}>← Back to Chapter List</button>
               </div>
@@ -321,14 +370,14 @@ function SectionPage({ sid, go, known, setKnown, bookmarks, setBookmarks, wrong,
           : <Empty icon="✎" title="Notes coming soon" body={`Notes for ${s.label} are not available yet. Lecture notes will appear here.`} />)}
 
       {tab === "cards" && (isLive
-        ? <CardsPlayer known={known} setKnown={setKnown} points={allPoints} filterChapterId={cardFilter} onFilterChange={setCardFilter} embedded />
+        ? <CardsPlayer known={known} setKnown={setKnown} points={sectionCards} filterChapterId={cardFilter} onFilterChange={setCardFilter} embedded />
         : <Empty icon="▢" title="Flashcards coming soon" body="No card set for this section yet." />)}
 
       {tab === "bank" && (isLive
-        ? <QuizRunner wrong={wrong} setWrong={setWrong} points={allPoints} filterChapterId={cardFilter} onFilterChange={setCardFilter} embedded />
+        ? <QuizRunner wrong={wrong} setWrong={setWrong} points={sectionCards} filterChapterId={cardFilter} onFilterChange={setCardFilter} embedded />
         : <Empty icon="?" title="Question bank coming soon" body="No past-exam or mock questions yet." />)}
 
-      {tab === "prog" && <SectionProgress isLive={isLive} known={known} total={allPoints.length} />}
+      {tab === "prog" && <SectionProgress isLive={isLive} known={known} total={sectionCards.length} cards={sectionCards} />}
     </div>
   );
 }
@@ -423,20 +472,24 @@ function PointsNotes({ points }) {
     <div className="notewrap">
       <p className="notelead">This section covers {pts.length} acupuncture points tested on the Pan-Canadian TCM exam. Below is a summary table — use the Flashcards tab for detailed memorization.</p>
       <div className="notetable">
-        {pts.map(p => (
-          <div className="noterow" key={p.code}>
-            <span className="notecode" style={{ color: CH_COLOR[p.channel] }}>{p.code}</span>
-            <span className="notecn">{p.cn}</span>
-            <span className="notecat">{p.category}</span>
-          </div>
-        ))}
+        {pts.map(p => {
+          const category = (p.fields || []).find(f => f.label === "Category");
+          return (
+            <div className="noterow" key={p.code}>
+              <span className="notecode" style={{ color: p.tagColor }}>{p.code}</span>
+              <span className="notecn">{p.cn}</span>
+              <span className="notecat">{category ? category.value : ""}</span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 }
 
-function SectionProgress({ isLive, known, total }) {
-  const pct = isLive && total ? Math.round((Object.values(known).filter(Boolean).length / total) * 100) : 0;
+function SectionProgress({ isLive, known, total, cards }) {
+  const knownInSection = (cards || []).filter(c => known[c.code]).length;
+  const pct = isLive && total ? Math.round((knownInSection / total) * 100) : 0;
   return (
     <div className="panel">
       <div className="panellabel">Progress in This Section</div>
@@ -444,7 +497,7 @@ function SectionProgress({ isLive, known, total }) {
         <>
           <div className="statbig">{pct}<span className="statof">%</span></div>
           <Bar pct={pct} />
-          <p className="dim">Based on points marked "Known" in Flashcards.</p>
+          <p className="dim">Based on items marked "Known" in Flashcards.</p>
         </>
       ) : <p className="dim">Completion rate will appear here once content is added.</p>}
     </div>
@@ -468,13 +521,13 @@ function CardsPlayer({ known, setKnown, embedded, points, filterChapterId, onFil
 
   useEffect(() => { setDeck(filtered); setIdx(0); setFlipped(false); }, [filterChapterId, allPts.length]);
 
-  const knownCount = Object.values(known).filter(Boolean).length;
+  const knownCount = allPts.filter(p => known[p.code]).length;
 
   if (allPts.length === 0) {
-    return <Empty icon="⏳" title="Loading point data" body="Please wait..." />;
+    return <Empty icon="⏳" title="Loading data" body="Please wait..." />;
   }
   if (deck.length === 0) {
-    return <Empty icon="▢" title="No cards" body="No points match this filter." />;
+    return <Empty icon="▢" title="No cards" body="Nothing matches this filter." />;
   }
 
   const card = deck[idx];
@@ -498,24 +551,20 @@ function CardsPlayer({ known, setKnown, embedded, points, filterChapterId, onFil
         <button className="ghost" onClick={() => { setDeck(shuffle(filtered)); setIdx(0); setFlipped(false); }}>↻ Shuffle</button>
       </div>
 
-      <div className="flash" style={{ borderColor: CH_COLOR[card.channel] || "#8A6D3B" }} onClick={() => setFlipped(f => !f)}>
-        <span className="chtag" style={{ background: CH_COLOR[card.channel] || "#8A6D3B" }}>{card.channel}</span>
+      <div className="flash" style={{ borderColor: card.tagColor || "#8A6D3B" }} onClick={() => setFlipped(f => !f)}>
+        <span className="chtag" style={{ background: card.tagColor || "#8A6D3B" }}>{card.tag}</span>
         {known[card.code] && <span className="knowndot">●</span>}
         {!flipped ? (
           <div className="flashfront">
             <div className="fcode">{card.code}</div>
-            <div className="fcn">{card.cn}</div>
-            <div className="fpin">{card.pinyin}</div>
+            {card.cn && <div className="fcn">{card.cn}</div>}
+            {card.pinyin && <div className="fpin">{card.pinyin}</div>}
             <div className="ftap">Tap for details →</div>
           </div>
         ) : (
           <div className="flashback">
-            <div className="fbhead"><b>{card.code}</b> {card.cn} · {card.pinyin}</div>
-            <KV k="Location" v={card.location} />
-            <KV k="Category" v={card.category} />
-            {card.function && <KV k="Function" v={card.function} />}
-            <KV k="Indications" v={card.indications} />
-            {card.caution !== "—" && <KV k="Needling" v={card.caution} danger={/caution|contraindicat|avoid/i.test(card.caution)} />}
+            <div className="fbhead"><b>{card.code}</b>{card.cn ? ` · ${card.cn}` : ""}</div>
+            {(card.fields || []).map((f, i) => f.value && <KV key={i} k={f.label} v={f.value} danger={f.danger} />)}
           </div>
         )}
       </div>
@@ -555,16 +604,16 @@ function QuizRunner({ wrong, setWrong, embedded, points, filterChapterId, onFilt
     if (picked) return; setPicked(opt);
     const cur = quiz[qi];
     if (opt === cur.correct) setScore(s => s + 1);
-    else setWrong(prev => { const n = [{ q: cur.text, correct: cur.correct, chose: opt, point: cur.point, ts: Date.now() }, ...prev].slice(0, 100); store.set("tcm:wrong", n); return n; });
+    else setWrong(prev => { const n = [{ q: cur.text, correct: cur.correct, chose: opt, point: cur.point, sectionId: cur.sectionId, ts: Date.now() }, ...prev].slice(0, 100); store.set("tcm:wrong", n); return n; });
   };
   const next = () => { if (qi + 1 >= quiz.length) setDone(true); else { setQi(i => i + 1); setPicked(null); } };
   const fmt = (s) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
   if (allPts.length === 0) {
-    return <Empty icon="⏳" title="Loading point data" body="Please wait..." />;
+    return <Empty icon="⏳" title="Loading data" body="Please wait..." />;
   }
   if (quiz.length === 0) {
-    return <Empty icon="?" title="No questions" body="Not enough points match this filter." />;
+    return <Empty icon="?" title="No questions" body="Not enough items match this filter." />;
   }
 
   if (done) {
@@ -633,7 +682,7 @@ function WrongBook({ wrong, setWrong, go }) {
             <div className="wrongitem" key={i}>
               <div className="wrongq">{w.q}</div>
               <div className="wrongline"><span className="wmy">Your answer: {w.chose}</span><span className="wok">Correct: {w.correct}</span></div>
-              <button className="wlink" onClick={() => go("section", "acu-points")}>→ Review {w.point} in section</button>
+              <button className="wlink" onClick={() => go("section", w.sectionId || "acu-points")}>→ Review {w.point} in section</button>
             </div>
           ))}
         </div>}
@@ -660,24 +709,27 @@ function UploadStub() {
 }
 
 /* ---------------- PROGRESS tracker ---------------- */
-function ProgressTracker({ pointsPct, knownCount, pointsTotal }) {
+function ProgressTracker({ knownCount, pointsTotal, cardsBySection, known }) {
   return (
     <div>
       <Header eyebrow="Study Tools" title="Progress Tracker" />
       <div className="panel">
         <div className="panellabel">Completion by Section</div>
         {AREAS.flatMap(a => a.sections).map(s => {
-          const live = !!s.live, pct = live ? pointsPct : 0;
+          const cards = (cardsBySection && cardsBySection[s.id]) || [];
+          const live = cards.length > 0;
+          const knownHere = live ? cards.filter(c => known[c.code]).length : 0;
+          const pct = live ? Math.round((knownHere / cards.length) * 100) : 0;
           return (
             <div className="progrow" key={s.id}>
-              <div className="progname">{s.label} <span className="progko">{s.ko}</span></div>
+              <div className="progname">{s.label}</div>
               <div className="progbarwrap"><div className="progbar" style={{ width: `${pct}%` }} /></div>
               <div className="progpct">{live ? `${pct}%` : "—"}</div>
             </div>
           );
         })}
       </div>
-      <p className="dim">Only Acupuncture Points tracks real progress right now ({knownCount}/{pointsTotal}). Other sections will update automatically once content is added.</p>
+      <p className="dim">Progress is tracked for sections with flashcards ({knownCount}/{pointsTotal} Acupuncture Points known). Other sections will show completion once their flashcards are used.</p>
     </div>
   );
 }
