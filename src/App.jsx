@@ -967,7 +967,7 @@ const CSS = `
 .ltable th:last-child,.ltable td:last-child{border-right:none;}
 .ltcorner{background:var(--parch)!important;}
 .lnotefoot{margin-top:18px;font-size:12px;color:var(--dim);background:var(--card);border:1px dashed var(--parch2);border-radius:10px;padding:12px 14px;line-height:1.5;}
-.backbtn{border:none;background:none;color:var(--brass);font-size:13px;cursor:pointer;font-family:inherit;font-weight:500;padding:0 0 14px;}
+.backbtn{display:block;border:none;background:none;color:var(--brass);font-size:13px;cursor:pointer;font-family:inherit;font-weight:500;padding:0 0 14px;}
 .backbtn-bottom{padding:18px 0 0;margin-top:6px;border-top:1px solid var(--parch2);width:100%;text-align:left;}
 .chapwrap{}
 .chaplead{font-size:14px;color:var(--ink);margin:0 0 16px;line-height:1.6;}
