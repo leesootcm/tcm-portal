@@ -17,7 +17,6 @@ const AREAS = [
       { id: "acu-points", label: "Acupuncture Points", ko: "경혈", live: true },
       { id: "acu-selection", label: "Point Selections", ko: "배혈법", hasNote: true },
       { id: "acu-tech", label: "Techniques", ko: "자침 수기", hasNote: true },
-      { id: "acu-thera", label: "Therapeutics", ko: "치료", hasNote: true },
       { id: "acu-west", label: "Biomedicine", ko: "서양의학" },
       { id: "acu-safety", label: "Safety", ko: "안전" },
     ],
@@ -42,22 +41,48 @@ const SECTION_INDEX = Object.fromEntries(
   AREAS.flatMap(a => a.sections.map(s => [s.id, { ...s, area: a.label, areaId: a.id }]))
 );
 
-/* ---------------- acupuncture point data (live section) ------- */
-const POINTS = [
-  { code: "LI-4", pinyin: "Hégǔ", cn: "合谷", channel: "Large Intestine", location: "Dorsum of the hand, between the 1st & 2nd metacarpals, midpoint of the 2nd metacarpal, radial side.", category: "Yuan-source; Command point of the face & mouth", indications: "Headache, facial & dental pain, common cold, immune regulation.", caution: "Contraindicated in pregnancy." },
-  { code: "ST-36", pinyin: "Zúsānlǐ", cn: "足三里", channel: "Stomach", location: "3 cun below ST-35, one finger-breadth lateral to the anterior crest of the tibia.", category: "He-sea; Sea of Nourishment", indications: "Tonifies Qi & Blood, digestion, fatigue, immunity & longevity.", caution: "—" },
-  { code: "SP-6", pinyin: "Sānyīnjiāo", cn: "三陰交", channel: "Spleen", location: "3 cun above the tip of the medial malleolus, posterior to the tibia.", category: "Crossing of the 3 leg Yin channels", indications: "Gynaecology, digestion, blood disorders, insomnia.", caution: "Contraindicated in pregnancy." },
-  { code: "LV-3", pinyin: "Tàichōng", cn: "太衝", channel: "Liver", location: "Dorsum of the foot, distal to the junction of the 1st & 2nd metatarsals.", category: "Yuan-source; Shu-stream", indications: "Moves Liver Qi, calms the mind, headache, hypertension.", caution: "Part of the 'Four Gates' with LI-4." },
-  { code: "PC-6", pinyin: "Nèiguān", cn: "內關", channel: "Pericardium", location: "2 cun above the wrist crease, between palmaris longus & flexor carpi radialis.", category: "Luo-connecting; Confluent of Yin Wei", indications: "Nausea, vomiting, chest pain, palpitations, anxiety.", caution: "—" },
-  { code: "GB-20", pinyin: "Fēngchí", cn: "風池", channel: "Gallbladder", location: "Below the occiput, between the sternocleidomastoid & trapezius.", category: "Crossing with Yang Wei vessel", indications: "Expels Wind, headache, dizziness, eye disorders, neck stiffness.", caution: "Angle toward the opposite eye; avoid deep medial needling." },
-  { code: "HT-7", pinyin: "Shénmén", cn: "神門", channel: "Heart", location: "Wrist crease, radial side of the flexor carpi ulnaris tendon.", category: "Yuan-source; Shu-stream", indications: "Calms the Shen, insomnia, palpitations, anxiety, poor memory.", caution: "—" },
-  { code: "LU-7", pinyin: "Lièquē", cn: "列缺", channel: "Lung", location: "1.5 cun above the wrist crease, above the styloid process of the radius.", category: "Luo-connecting; Command of head & neck; Confluent of Ren", indications: "Cough, sore throat, headache, neck pain, common cold.", caution: "—" },
-  { code: "KI-3", pinyin: "Tàixī", cn: "太谿", channel: "Kidney", location: "Between the tip of the medial malleolus & the Achilles tendon.", category: "Yuan-source; Shu-stream", indications: "Tonifies Kidney Yin & Yang, tinnitus, low back pain.", caution: "—" },
-  { code: "BL-40", pinyin: "Wěizhōng", cn: "委中", channel: "Bladder", location: "Midpoint of the popliteal crease, between biceps femoris & semitendinosus.", category: "He-sea; Command point of the back", indications: "Low back pain, sciatica, knee disorders, clears Heat.", caution: "Avoid the popliteal artery/vein." },
-  { code: "GV-20", pinyin: "Bǎihuì", cn: "百會", channel: "Governing Vessel", location: "Vertex, on the midline, 5 cun posterior to the anterior hairline.", category: "Crossing of all Yang channels", indications: "Raises Yang (prolapse), calms the Shen, headache, dizziness.", caution: "—" },
-  { code: "ST-25", pinyin: "Tiānshū", cn: "天樞", channel: "Stomach", location: "2 cun lateral to the centre of the umbilicus.", category: "Front-Mu point of the Large Intestine", indications: "Diarrhoea, constipation, abdominal pain, regulates intestines.", caution: "—" },
-];
-const CH_COLOR = { "Large Intestine": "#B08D3C", "Stomach": "#A85A2E", "Spleen": "#8A6D3B", "Liver": "#3F6B57", "Pericardium": "#7A4B63", "Gallbladder": "#5B7A4B", "Heart": "#9A3B32", "Lung": "#4A6B7A", "Kidney": "#2F4858", "Bladder": "#3A5A78", "Governing Vessel": "#6B5B95" };
+/* ---------------- acupuncture point data (derived from chapterData) ------- */
+const POINT_CHAPTER_IDS = ["pts-lu","pts-li","pts-st","pts-sp","pts-ht","pts-pc","pts-si","pts-bl","pts-ki","pts-te","pts-gb","pts-lv","pts-cv","pts-gv"];
+
+function deriveAllPoints(chapterData) {
+  if (!chapterData) return [];
+  const chapters = chapterData["acu-points"] || [];
+  const out = [];
+  chapters.forEach(ch => {
+    if (!POINT_CHAPTER_IDS.includes(ch.id)) return;
+    (ch.blocks || []).forEach(b => {
+      if (!b.table) return;
+      const cols = b.table.cols;
+      const iPt = cols.indexOf("Point"), iName = cols.indexOf("Name"), iCat = cols.indexOf("Category"),
+            iFunc = cols.indexOf("Function"), iLoc = cols.indexOf("Location"),
+            iInd = cols.indexOf("Indications"), iNeed = cols.indexOf("Needling");
+      if (iPt < 0 || iLoc < 0) return;
+      b.table.rows.forEach(row => {
+        const raw = row[iPt] || "";
+        const code = raw.replace("★", "").trim();
+        const m = code.match(/^([A-Z]+)(\d+)/);
+        const channel = m ? m[1] : code;
+        const name = iName >= 0 ? (row[iName] || "") : "";
+        const parts = name.split(" ");
+        const cn = parts[0] || "";
+        const pinyin = parts.slice(1).join(" ") || "";
+        out.push({
+          code, channel, chapterId: ch.id, chapterTitle: ch.title,
+          cn, pinyin,
+          category: iCat >= 0 ? row[iCat] : "",
+          function: iFunc >= 0 ? row[iFunc] : "",
+          indications: iInd >= 0 ? row[iInd] : "",
+          location: row[iLoc] || "",
+          caution: iNeed >= 0 ? (row[iNeed] || "—") : "—",
+        });
+      });
+    });
+  });
+  return out;
+}
+
+const CH_COLOR = { LU:"#4A6B7A", LI:"#B08D3C", ST:"#A85A2E", SP:"#8A6D3B", HT:"#9A3B32", PC:"#7A4B63", SI:"#6E7A3B", BL:"#3A5A78", KI:"#2F4858", TE:"#A67C3D", GB:"#5B7A4B", LV:"#3F6B57", CV:"#8A3B5B", GV:"#6B5B95" };
+
 
 /* ---------------- lecture notes (section content) ---------------- */
 const CONTENT_URL = "./tcm-content.json"; // content lives in its own file now; fetched at runtime, not bundled in this component
@@ -69,15 +94,17 @@ const store = {
 };
 const shuffle = (a) => { const x = [...a]; for (let i = x.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [x[i], x[j]] = [x[j], x[i]]; } return x; };
 
-function buildQuestions(n = 8) {
+function buildQuestions(points, n = 8) {
+  if (!points || points.length === 0) return [];
   const T = [
-    (p) => ({ q: `다음 위치의 혈자리는? "${p.location}"`, c: p.code, pool: POINTS.map(x => x.code) }),
-    (p) => ({ q: `${p.code} (${p.cn}) 는 어느 경락인가요?`, c: p.channel, pool: [...new Set(POINTS.map(x => x.channel))] }),
-    (p) => ({ q: `분류 "${p.category}" 에 해당하는 혈자리는?`, c: p.code, pool: POINTS.map(x => x.code) }),
-    (p) => ({ q: `주치 "${p.indications}" 는 어느 혈자리?`, c: p.code, pool: POINTS.map(x => x.code) }),
+    (p) => ({ q: `다음 위치의 혈자리는? "${p.location}"`, c: p.code, pool: points.map(x => x.code) }),
+    (p) => ({ q: `${p.code} (${p.cn}) 는 어느 경락인가요?`, c: p.channel, pool: [...new Set(points.map(x => x.channel))] }),
+    (p) => ({ q: `분류 "${p.category}" 에 해당하는 혈자리는?`, c: p.code, pool: points.map(x => x.code) }),
+    (p) => ({ q: `주치 "${p.indications}" 는 어느 혈자리?`, c: p.code, pool: points.map(x => x.code) }),
   ];
-  const src = shuffle(POINTS), out = [];
-  for (let i = 0; i < n; i++) {
+  const src = shuffle(points), out = [];
+  const count = Math.min(n, points.length);
+  for (let i = 0; i < count; i++) {
     const p = src[i % src.length], t = T[Math.floor(Math.random() * T.length)](p);
     const opts = shuffle([t.c, ...shuffle(t.pool.filter(o => o !== t.c)).slice(0, 3)]);
     out.push({ id: `${p.code}-${i}`, text: t.q, correct: t.c, options: opts, point: p.code });
@@ -119,7 +146,8 @@ export default function App() {
 
   const go = (v, sectionId) => { setNav({ view: v, sectionId }); setSidebar(false); };
   const knownCount = Object.values(known).filter(Boolean).length;
-  const pointsPct = Math.round((knownCount / POINTS.length) * 100);
+  const allPoints = useMemo(() => deriveAllPoints(chapterData), [chapterData]);
+  const pointsPct = allPoints.length ? Math.round((knownCount / allPoints.length) * 100) : 0;
 
   const dday = useMemo(() => {
     if (!examDate) return null;
@@ -182,14 +210,14 @@ export default function App() {
 
         {/* ---------------- main ---------------- */}
         <main className="main">
-          {nav.view === "home" && <Home go={go} pointsPct={pointsPct} knownCount={knownCount} wrong={wrong} dday={dday} examDate={examDate} setExamDate={(v) => { setExamDate(v); store.set("tcm:examDate", v); }} />}
-          {nav.view === "section" && <SectionPage sid={nav.sectionId} go={go} known={known} setKnown={setKnown} bookmarks={bookmarks} setBookmarks={setBookmarks} wrong={wrong} setWrong={setWrong} chapterData={chapterData} />}
-          {nav.view === "cards" && <CardsPlayer known={known} setKnown={setKnown} />}
-          {nav.view === "quiz" && <QuizRunner wrong={wrong} setWrong={setWrong} />}
+          {nav.view === "home" && <Home go={go} pointsPct={pointsPct} knownCount={knownCount} pointsTotal={allPoints.length} wrong={wrong} dday={dday} examDate={examDate} setExamDate={(v) => { setExamDate(v); store.set("tcm:examDate", v); }} />}
+          {nav.view === "section" && <SectionPage sid={nav.sectionId} go={go} known={known} setKnown={setKnown} bookmarks={bookmarks} setBookmarks={setBookmarks} wrong={wrong} setWrong={setWrong} chapterData={chapterData} allPoints={allPoints} />}
+          {nav.view === "cards" && <CardsPlayer known={known} setKnown={setKnown} points={allPoints} />}
+          {nav.view === "quiz" && <QuizRunner wrong={wrong} setWrong={setWrong} points={allPoints} />}
           {nav.view === "wrong" && <WrongBook wrong={wrong} setWrong={setWrong} go={go} />}
           {nav.view === "upload" && <UploadStub />}
-          {nav.view === "progress" && <ProgressTracker pointsPct={pointsPct} knownCount={knownCount} />}
-          {nav.view === "mypage" && <MyPage pointsPct={pointsPct} bookmarks={bookmarks} setBookmarks={setBookmarks} go={go} dday={dday} />}
+          {nav.view === "progress" && <ProgressTracker pointsPct={pointsPct} knownCount={knownCount} pointsTotal={allPoints.length} />}
+          {nav.view === "mypage" && <MyPage pointsPct={pointsPct} pointsTotal={allPoints.length} bookmarks={bookmarks} setBookmarks={setBookmarks} go={go} dday={dday} />}
         </main>
       </div>
     </div>
@@ -207,7 +235,7 @@ function NavItem({ label, ko, sub, live, active, onClick }) {
 }
 
 /* ---------------- HOME / dashboard ---------------- */
-function Home({ go, pointsPct, knownCount, wrong, dday, examDate, setExamDate }) {
+function Home({ go, pointsPct, knownCount, pointsTotal, wrong, dday, examDate, setExamDate }) {
   const totalSections = AREAS.reduce((n, a) => n + a.sections.length, 0);
   return (
     <div>
@@ -222,7 +250,7 @@ function Home({ go, pointsPct, knownCount, wrong, dday, examDate, setExamDate })
         </div>
         <div className="panel">
           <div className="panellabel">경혈 암기</div>
-          <div className="statbig">{knownCount}<span className="statof"> / {POINTS.length}</span></div>
+          <div className="statbig">{knownCount}<span className="statof"> / {pointsTotal}</span></div>
           <Bar pct={pointsPct} />
           <button className="linkbtn" onClick={() => go("section", "acu-points")}>경혈 섹션 열기 →</button>
         </div>
@@ -231,7 +259,7 @@ function Home({ go, pointsPct, knownCount, wrong, dday, examDate, setExamDate })
       <div className="grid3">
         <MiniStat label="전체 섹션" value={`${totalSections}개`} note="침구7 · 허벌3 · 법규1" />
         <MiniStat label="오답노트" value={`${wrong.length}개`} note={wrong.length ? "복습 필요" : "깨끗함"} onClick={() => go("wrong")} />
-        <MiniStat label="콘텐츠 준비" value="6 / 12" note="Foundations · Diagnosis · Points · Selections · Techniques · Therapeutics" />
+        <MiniStat label="콘텐츠 준비" value="6 / 11" note="Foundations · Diagnostic Methods · Diagnosis · Points · Selections · Techniques" />
       </div>
 
       <div className="panel">
@@ -248,10 +276,11 @@ function Home({ go, pointsPct, knownCount, wrong, dday, examDate, setExamDate })
 }
 
 /* ---------------- SECTION page (4 sub-tabs) ---------------- */
-function SectionPage({ sid, go, known, setKnown, bookmarks, setBookmarks, wrong, setWrong, chapterData }) {
+function SectionPage({ sid, go, known, setKnown, bookmarks, setBookmarks, wrong, setWrong, chapterData, allPoints }) {
   const s = SECTION_INDEX[sid];
   const [tab, setTab] = useState("notes");
   const [openChapter, setOpenChapter] = useState(null);
+  const [cardFilter, setCardFilter] = useState("all");
   const isLive = !!s.live;
   const contentLoading = chapterData === null;
   const chapters = chapterData ? chapterData[sid] : null;
@@ -260,6 +289,8 @@ function SectionPage({ sid, go, known, setKnown, bookmarks, setBookmarks, wrong,
   const toggleBm = () => setBookmarks(prev => { const n = { ...prev, [bmKey]: !prev[bmKey] }; store.set("tcm:bookmarks", n); return n; });
 
   const activeChapter = chapters && openChapter ? chapters.find(c => c.id === openChapter) : null;
+  const isPointChapter = activeChapter && POINT_CHAPTER_IDS.includes(activeChapter.id);
+  const practiceThisChapter = () => { setCardFilter(activeChapter.id); setTab("cards"); };
 
   return (
     <div>
@@ -281,22 +312,23 @@ function SectionPage({ sid, go, known, setKnown, bookmarks, setBookmarks, wrong,
         ? (activeChapter
             ? <div>
                 <button className="backbtn" onClick={() => setOpenChapter(null)}>← 챕터 목록</button>
+                {isPointChapter && <button className="mark" style={{ marginBottom: 14 }} onClick={practiceThisChapter}>이 챕터 플래시카드로 연습 →</button>}
                 <LectureNote note={activeChapter} />
               </div>
             : <ChapterList chapters={chapters} onOpen={setOpenChapter} />)
         : isLive
-          ? <PointsNotes />
+          ? <PointsNotes points={allPoints} />
           : <Empty icon="✎" title="노트 준비 중" body={`${s.label} 섹션의 노트가 아직 없어요. 이 자리에 강의 노트가 들어갑니다.`} />)}
 
       {tab === "cards" && (isLive
-        ? <CardsPlayer known={known} setKnown={setKnown} embedded />
+        ? <CardsPlayer known={known} setKnown={setKnown} points={allPoints} filterChapterId={cardFilter} onFilterChange={setCardFilter} embedded />
         : <Empty icon="▢" title="플래시카드 준비 중" body="이 섹션의 카드 세트가 아직 없어요." />)}
 
       {tab === "bank" && (isLive
-        ? <QuizRunner wrong={wrong} setWrong={setWrong} embedded />
+        ? <QuizRunner wrong={wrong} setWrong={setWrong} points={allPoints} filterChapterId={cardFilter} onFilterChange={setCardFilter} embedded />
         : <Empty icon="?" title="문제은행 준비 중" body="기출·모의고사 문제가 아직 없어요." />)}
 
-      {tab === "prog" && <SectionProgress isLive={isLive} known={known} />}
+      {tab === "prog" && <SectionProgress isLive={isLive} known={known} total={allPoints.length} />}
     </div>
   );
 }
@@ -386,12 +418,13 @@ function LectureNote({ note }) {
   );
 }
 
-function PointsNotes() {
+function PointsNotes({ points }) {
+  const pts = points || [];
   return (
     <div className="notewrap">
-      <p className="notelead">이 섹션은 Pan-Canadian TCM 시험에서 자주 나오는 경혈 {POINTS.length}개를 다룹니다. 아래는 요약 표이고, 상세 암기는 플래시카드 탭에서 하세요.</p>
+      <p className="notelead">이 섹션은 Pan-Canadian TCM 시험에서 다루는 경혈 {pts.length}개를 다룹니다. 아래는 요약 표이고, 상세 암기는 플래시카드 탭에서 하세요.</p>
       <div className="notetable">
-        {POINTS.map(p => (
+        {pts.map(p => (
           <div className="noterow" key={p.code}>
             <span className="notecode" style={{ color: CH_COLOR[p.channel] }}>{p.code}</span>
             <span className="notecn">{p.cn}</span>
@@ -403,8 +436,8 @@ function PointsNotes() {
   );
 }
 
-function SectionProgress({ isLive, known }) {
-  const pct = isLive ? Math.round((Object.values(known).filter(Boolean).length / POINTS.length) * 100) : 0;
+function SectionProgress({ isLive, known, total }) {
+  const pct = isLive && total ? Math.round((Object.values(known).filter(Boolean).length / total) * 100) : 0;
   return (
     <div className="panel">
       <div className="panellabel">이 섹션 진도</div>
@@ -420,26 +453,54 @@ function SectionProgress({ isLive, known }) {
 }
 
 /* ---------------- FLASHCARD player ---------------- */
-function CardsPlayer({ known, setKnown, embedded }) {
-  const [deck, setDeck] = useState(POINTS);
+function CardsPlayer({ known, setKnown, embedded, points, filterChapterId, onFilterChange }) {
+  const allPts = points || [];
+  const filter = filterChapterId || "all";
+  const filtered = filter === "all" ? allPts : allPts.filter(p => p.chapterId === filter);
+  const chapterOptions = useMemo(() => {
+    const seen = new Map();
+    allPts.forEach(p => { if (!seen.has(p.chapterId)) seen.set(p.chapterId, p.chapterTitle); });
+    return [...seen.entries()];
+  }, [allPts]);
+
+  const [deck, setDeck] = useState(filtered);
   const [idx, setIdx] = useState(0);
   const [flipped, setFlipped] = useState(false);
+
+  useEffect(() => { setDeck(filtered); setIdx(0); setFlipped(false); }, [filterChapterId, allPts.length]);
+
+  const knownCount = Object.values(known).filter(Boolean).length;
+
+  if (allPts.length === 0) {
+    return <Empty icon="⏳" title="혈자리 데이터 불러오는 중" body="잠시만 기다려주세요..." />;
+  }
+  if (deck.length === 0) {
+    return <Empty icon="▢" title="카드 없음" body="이 필터에 해당하는 혈자리가 없어요." />;
+  }
+
   const card = deck[idx];
   const toggle = (code) => setKnown(prev => { const n = { ...prev, [code]: !prev[code] }; store.set("tcm:known", n); return n; });
   const move = (d) => { setFlipped(false); setIdx(i => (i + d + deck.length) % deck.length); };
-  const knownCount = Object.values(known).filter(Boolean).length;
 
   return (
     <div>
       {!embedded && <Header eyebrow="학습도구" title="플래시카드" seal="卡" />}
+      {onFilterChange && (
+        <div className="toolbar" style={{ marginBottom: 8 }}>
+          <select className="ghost" value={filter} onChange={(e) => onFilterChange(e.target.value)}>
+            <option value="all">전체 ({allPts.length})</option>
+            {chapterOptions.map(([id, title]) => <option key={id} value={id}>{title}</option>)}
+          </select>
+        </div>
+      )}
       <div className="toolbar">
         <span className="mono">{idx + 1} / {deck.length}</span>
-        <span className="pill">외운 경혈 {knownCount}/{POINTS.length}</span>
-        <button className="ghost" onClick={() => { setDeck(shuffle(POINTS)); setIdx(0); setFlipped(false); }}>↻ 섞기</button>
+        <span className="pill">외운 경혈 {knownCount}/{allPts.length}</span>
+        <button className="ghost" onClick={() => { setDeck(shuffle(filtered)); setIdx(0); setFlipped(false); }}>↻ 섞기</button>
       </div>
 
-      <div className="flash" style={{ borderColor: CH_COLOR[card.channel] }} onClick={() => setFlipped(f => !f)}>
-        <span className="chtag" style={{ background: CH_COLOR[card.channel] }}>{card.channel}</span>
+      <div className="flash" style={{ borderColor: CH_COLOR[card.channel] || "#8A6D3B" }} onClick={() => setFlipped(f => !f)}>
+        <span className="chtag" style={{ background: CH_COLOR[card.channel] || "#8A6D3B" }}>{card.channel}</span>
         {known[card.code] && <span className="knowndot">●</span>}
         {!flipped ? (
           <div className="flashfront">
@@ -453,8 +514,9 @@ function CardsPlayer({ known, setKnown, embedded }) {
             <div className="fbhead"><b>{card.code}</b> {card.cn} · {card.pinyin}</div>
             <KV k="위치" v={card.location} />
             <KV k="분류" v={card.category} />
+            {card.function && <KV k="작용" v={card.function} />}
             <KV k="주치" v={card.indications} />
-            {card.caution !== "—" && <KV k="주의" v={card.caution} danger />}
+            {card.caution !== "—" && <KV k="자침" v={card.caution} danger={/caution|contraindicat|avoid/i.test(card.caution)} />}
           </div>
         )}
       </div>
@@ -469,17 +531,27 @@ function CardsPlayer({ known, setKnown, embedded }) {
 }
 
 /* ---------------- QUIZ runner ---------------- */
-function QuizRunner({ wrong, setWrong, embedded }) {
-  const [quiz, setQuiz] = useState(() => buildQuestions(8));
+function QuizRunner({ wrong, setWrong, embedded, points, filterChapterId, onFilterChange }) {
+  const allPts = points || [];
+  const filter = filterChapterId || "all";
+  const filtered = filter === "all" ? allPts : allPts.filter(p => p.chapterId === filter);
+  const chapterOptions = useMemo(() => {
+    const seen = new Map();
+    allPts.forEach(p => { if (!seen.has(p.chapterId)) seen.set(p.chapterId, p.chapterTitle); });
+    return [...seen.entries()];
+  }, [allPts]);
+
+  const [quiz, setQuiz] = useState(() => buildQuestions(filtered, 8));
   const [qi, setQi] = useState(0);
   const [picked, setPicked] = useState(null);
   const [score, setScore] = useState(0);
   const [sec, setSec] = useState(0);
   const [done, setDone] = useState(false);
 
+  useEffect(() => { start(); }, [filterChapterId, allPts.length]); // eslint-disable-line
   useEffect(() => { if (done) return; const t = setInterval(() => setSec(s => s + 1), 1000); return () => clearInterval(t); }, [done]);
 
-  const start = () => { setQuiz(buildQuestions(8)); setQi(0); setPicked(null); setScore(0); setSec(0); setDone(false); };
+  const start = () => { setQuiz(buildQuestions(filtered, 8)); setQi(0); setPicked(null); setScore(0); setSec(0); setDone(false); };
   const answer = (opt) => {
     if (picked) return; setPicked(opt);
     const cur = quiz[qi];
@@ -488,6 +560,13 @@ function QuizRunner({ wrong, setWrong, embedded }) {
   };
   const next = () => { if (qi + 1 >= quiz.length) setDone(true); else { setQi(i => i + 1); setPicked(null); } };
   const fmt = (s) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+
+  if (allPts.length === 0) {
+    return <Empty icon="⏳" title="혈자리 데이터 불러오는 중" body="잠시만 기다려주세요..." />;
+  }
+  if (quiz.length === 0) {
+    return <Empty icon="?" title="문제 없음" body="이 필터에 해당하는 혈자리가 부족해요." />;
+  }
 
   if (done) {
     const pct = Math.round((score / quiz.length) * 100);
@@ -508,6 +587,14 @@ function QuizRunner({ wrong, setWrong, embedded }) {
   return (
     <div>
       {!embedded && <Header eyebrow="학습도구" title="퀴즈 · 모의고사" seal="問" />}
+      {onFilterChange && (
+        <div className="toolbar" style={{ marginBottom: 8 }}>
+          <select className="ghost" value={filter} onChange={(e) => onFilterChange(e.target.value)}>
+            <option value="all">전체 ({allPts.length})</option>
+            {chapterOptions.map(([id, title]) => <option key={id} value={id}>{title}</option>)}
+          </select>
+        </div>
+      )}
       <div className="toolbar">
         <span className="mono">문항 {qi + 1} / {quiz.length}</span>
         <span className="mono timer">⏱ {fmt(sec)}</span>
@@ -574,7 +661,7 @@ function UploadStub() {
 }
 
 /* ---------------- PROGRESS tracker ---------------- */
-function ProgressTracker({ pointsPct, knownCount }) {
+function ProgressTracker({ pointsPct, knownCount, pointsTotal }) {
   return (
     <div>
       <Header eyebrow="학습도구" title="진도 트래커" seal="度" />
@@ -591,7 +678,7 @@ function ProgressTracker({ pointsPct, knownCount }) {
           );
         })}
       </div>
-      <p className="dim">현재는 Acupuncture Points만 실제 진도가 집계됩니다({knownCount}/{POINTS.length}). 다른 섹션은 콘텐츠 추가 후 자동 반영돼요.</p>
+      <p className="dim">현재는 Acupuncture Points만 실제 진도가 집계됩니다({knownCount}/{pointsTotal}). 다른 섹션은 콘텐츠 추가 후 자동 반영돼요.</p>
     </div>
   );
 }
