@@ -29,6 +29,12 @@ const AREAS = [
       { id: "herb-safety", label: "Safety", noCards: true },
     ],
   },
+  {
+    id: "resources", label: "Resources",
+    sections: [
+      { id: "res-bigpicture", label: "Big Picture", hasNote: true, noCards: true },
+    ],
+  },
 ];
 
 const SECTION_INDEX = Object.fromEntries(
@@ -354,9 +360,9 @@ function Home({ go, pointsPct, knownCount, pointsTotal, wrong, dday, examDate, s
       </div>
 
       <div className="grid3">
-        <MiniStat label="Total Sections" value={`${totalSections}`} note="Acupuncture 8 · Herbology 3 · Jurisprudence 1" />
+        <MiniStat label="Total Sections" value={`${totalSections}`} note="Acupuncture 8 · Herbology 3 · Resources 1 · Jurisprudence 1" />
         <MiniStat label="Wrong Answers" value={`${wrong.length}`} note={wrong.length ? "Needs review" : "All clear"} onClick={() => go("wrong")} />
-        <MiniStat label="Content Ready" value="7 / 11" note="Foundations · Diagnostic Methods · Diagnosis · Points · Selections · Techniques · Extras" />
+        <MiniStat label="Content Ready" value="8 / 12" note="Foundations · Diagnostic Methods · Diagnosis · Points · Selections · Techniques · Extras · Big Picture" />
       </div>
 
       <div className="panel">
