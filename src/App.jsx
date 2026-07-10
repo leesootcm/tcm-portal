@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 
 /* =================================================================
    Pan-Canadian TCM Exam Portal — full navigable shell (single-user)
@@ -17,8 +17,8 @@ const AREAS = [
       { id: "acu-points", label: "Acupuncture Points", live: true },
       { id: "acu-selection", label: "Point Selections", hasNote: true },
       { id: "acu-tech", label: "Techniques", hasNote: true },
-      { id: "acu-extras", label: "Extras", hasNote: true },
-      { id: "acu-safety", label: "Safety", hasNote: true },
+      { id: "acu-extras", label: "Extras", hasNote: true, noCards: true },
+      { id: "acu-safety", label: "Safety", hasNote: true, noCards: true },
     ],
   },
   {
@@ -26,7 +26,7 @@ const AREAS = [
     sections: [
       { id: "herb-single", label: "Single Herbs" },
       { id: "herb-formula", label: "Formulas" },
-      { id: "herb-safety", label: "Safety" },
+      { id: "herb-safety", label: "Safety", noCards: true },
     ],
   },
 ];
@@ -194,7 +194,7 @@ function buildQuestions(cards, n = 8) {
 /* ================================================================ */
 export default function App() {
   const [ready, setReady] = useState(false);
-  const [nav, setNav] = useState({ view: "home" });      // {view, sectionId?}
+  const [nav, setNav] = useState({ view: "home" });      // {view, sectionId?, chapterId?}
   const [openArea, setOpenArea] = useState("acu");
   const [sidebar, setSidebar] = useState(false);          // mobile drawer
 
@@ -223,7 +223,7 @@ export default function App() {
     }
   })(); }, []);
 
-  const go = (v, sectionId) => { setNav({ view: v, sectionId }); setSidebar(false); };
+  const go = (v, sectionId, chapterId) => { setNav({ view: v, sectionId, chapterId }); setSidebar(false); };
   const allPoints = useMemo(() => deriveAllPoints(chapterData), [chapterData]);
   const knownCount = useMemo(() => allPoints.filter(p => known[p.code]).length, [known, allPoints]);
   const pointsPct = allPoints.length ? Math.round((knownCount / allPoints.length) * 100) : 0;
@@ -240,7 +240,6 @@ export default function App() {
     }
     return map;
   }, [chapterData, allPoints, herbSingleCards, herbFormulaCards]);
-  const allCards = useMemo(() => Object.values(cardsBySection).flat(), [cardsBySection]);
 
   const dday = useMemo(() => {
     if (!examDate) return null;
@@ -289,8 +288,9 @@ export default function App() {
 
           <div className="navdiv" />
           <div className="navlabel">Study Tools</div>
-          <NavItem label="Flashcards" active={nav.view === "cards"} onClick={() => go("cards")} />
+          <NavItem label="Flashcards" active={nav.view === "cards" || nav.view === "cardsSection"} onClick={() => go("cards")} />
           <NavItem label="Quiz" active={nav.view === "quiz" || nav.view === "quizSection"} onClick={() => go("quiz")} />
+          <NavItem label="Pomodoro" active={nav.view === "pomodoro"} onClick={() => go("pomodoro")} />
           <NavItem label="Mock Exam" active={nav.view === "mockexam"} onClick={() => go("mockexam")} />
           <NavItem label={`Wrong Answers${wrong.length ? ` · ${wrong.length}` : ""}`} active={nav.view === "wrong"} onClick={() => go("wrong")} />
           <NavItem label="Upload Exam" active={nav.view === "upload"} onClick={() => go("upload")} />
@@ -305,15 +305,17 @@ export default function App() {
         {/* ---------------- main ---------------- */}
         <main className="main">
           {nav.view === "home" && <Home go={go} pointsPct={pointsPct} knownCount={knownCount} pointsTotal={allPoints.length} wrong={wrong} dday={dday} examDate={examDate} setExamDate={(v) => { setExamDate(v); store.set("tcm:examDate", v); }} />}
-          {nav.view === "section" && <SectionPage sid={nav.sectionId} go={go} known={known} setKnown={setKnown} bookmarks={bookmarks} setBookmarks={setBookmarks} wrong={wrong} setWrong={setWrong} chapterData={chapterData} allPoints={allPoints} cardsBySection={cardsBySection} />}
-          {nav.view === "cards" && <CardsPlayer known={known} setKnown={setKnown} points={allCards} />}
+          {nav.view === "section" && <SectionPage sid={nav.sectionId} initialChapterId={nav.chapterId} go={go} known={known} setKnown={setKnown} bookmarks={bookmarks} setBookmarks={setBookmarks} wrong={wrong} setWrong={setWrong} chapterData={chapterData} allPoints={allPoints} cardsBySection={cardsBySection} />}
+          {nav.view === "cards" && <CardsHub go={go} cardsBySection={cardsBySection} />}
+          {nav.view === "cardsSection" && <CardsHubWithBack known={known} setKnown={setKnown} embedded points={cardsBySection[nav.sectionId] || []} sectionTitle={(SECTION_INDEX[nav.sectionId] || {}).label} onBack={() => go("cards")} />}
           {nav.view === "quiz" && <QuizHub go={go} cardsBySection={cardsBySection} />}
           {nav.view === "quizSection" && <QuizRunner wrong={wrong} setWrong={setWrong} points={cardsBySection[nav.sectionId] || []} sectionTitle={(SECTION_INDEX[nav.sectionId] || {}).label} onBack={() => go("quiz")} />}
           {nav.view === "wrong" && <WrongBook wrong={wrong} setWrong={setWrong} go={go} />}
           {nav.view === "upload" && <UploadStub />}
           {nav.view === "mockexam" && <MockExamStub />}
           {nav.view === "progress" && <ProgressTracker knownCount={knownCount} pointsTotal={allPoints.length} cardsBySection={cardsBySection} known={known} />}
-          {nav.view === "mypage" && <MyPage pointsPct={pointsPct} pointsTotal={allPoints.length} bookmarks={bookmarks} setBookmarks={setBookmarks} go={go} dday={dday} />}
+          {nav.view === "mypage" && <MyPage pointsPct={pointsPct} pointsTotal={allPoints.length} bookmarks={bookmarks} setBookmarks={setBookmarks} chapterData={chapterData} go={go} dday={dday} />}
+          {nav.view === "pomodoro" && <PomodoroTimer />}
         </main>
       </div>
     </div>
@@ -371,10 +373,10 @@ function Home({ go, pointsPct, knownCount, pointsTotal, wrong, dday, examDate, s
 }
 
 /* ---------------- SECTION page (4 sub-tabs) ---------------- */
-function SectionPage({ sid, go, known, setKnown, bookmarks, setBookmarks, wrong, setWrong, chapterData, allPoints, cardsBySection }) {
+function SectionPage({ sid, initialChapterId, go, known, setKnown, bookmarks, setBookmarks, wrong, setWrong, chapterData, allPoints, cardsBySection }) {
   const s = SECTION_INDEX[sid];
   const [tab, setTab] = useState("notes");
-  const [openChapter, setOpenChapter] = useState(null);
+  const [openChapter, setOpenChapter] = useState(initialChapterId || null);
   const [cardFilter, setCardFilter] = useState("all");
   const sectionCards = (cardsBySection && cardsBySection[sid]) || [];
   const isLive = sectionCards.length > 0;
@@ -383,12 +385,21 @@ function SectionPage({ sid, go, known, setKnown, bookmarks, setBookmarks, wrong,
   const bmKey = `sec:${sid}`;
   const bookmarked = !!bookmarks[bmKey];
   const toggleBm = () => setBookmarks(prev => { const n = { ...prev, [bmKey]: !prev[bmKey] }; store.set("tcm:bookmarks", n); return n; });
+  const toggleChapterBm = (chapterId) => setBookmarks(prev => {
+    const key = `chap:${sid}:${chapterId}`;
+    const n = { ...prev, [key]: !prev[key] };
+    store.set("tcm:bookmarks", n);
+    return n;
+  });
+
+  useEffect(() => { setOpenChapter(initialChapterId || null); }, [sid, initialChapterId]);
 
   const activeChapter = chapters && openChapter ? chapters.find(c => c.id === openChapter) : null;
   const isCardChapter = isLive && activeChapter && (activeChapter.blocks || []).some(b => b.table);
   const practiceThisChapter = () => { setCardFilter(activeChapter.id); setTab("cards"); };
   const activeIdx = chapters && activeChapter ? chapters.findIndex(c => c.id === activeChapter.id) : -1;
   const nextChapter = chapters && activeIdx >= 0 ? chapters.slice(activeIdx + 1).find(c => c.status === "ready") : null;
+  const activeChapterBookmarked = activeChapter ? !!bookmarks[`chap:${sid}:${activeChapter.id}`] : false;
 
   return (
     <div>
@@ -409,7 +420,12 @@ function SectionPage({ sid, go, known, setKnown, bookmarks, setBookmarks, wrong,
         : chapters
         ? (activeChapter
             ? <div>
-                <button className="backbtn" onClick={() => setOpenChapter(null)}>← Chapter List</button>
+                <div className="chapheadrow">
+                  <button className="backbtn" style={{ padding: 0 }} onClick={() => setOpenChapter(null)}>← Chapter List</button>
+                  <button className={`bmbtn ${activeChapterBookmarked ? "on" : ""}`} onClick={() => toggleChapterBm(activeChapter.id)}>
+                    {activeChapterBookmarked ? "★ Bookmarked" : "☆ Bookmark chapter"}
+                  </button>
+                </div>
                 {isCardChapter && <button className="mark" style={{ marginBottom: 14 }} onClick={practiceThisChapter}>Practice this chapter with flashcards →</button>}
                 <LectureNote note={activeChapter} />
                 <div className="chapnavrow">
@@ -421,7 +437,7 @@ function SectionPage({ sid, go, known, setKnown, bookmarks, setBookmarks, wrong,
                   )}
                 </div>
               </div>
-            : <ChapterList chapters={chapters} onOpen={setOpenChapter} sectionId={sid} />)
+            : <ChapterList chapters={chapters} onOpen={setOpenChapter} sectionId={sid} bookmarks={bookmarks} onToggleBookmark={toggleChapterBm} />)
         : isLive
           ? <PointsNotes points={allPoints} />
           : <Empty icon="✎" title="Notes coming soon" body={`Notes for ${s.label} are not available yet. Lecture notes will appear here.`} />)}
@@ -458,7 +474,7 @@ function groupChapters(sectionId, chapters) {
   return grouped ? groups : null;
 }
 
-function ChapterList({ chapters, onOpen, sectionId }) {
+function ChapterList({ chapters, onOpen, sectionId, bookmarks, onToggleBookmark }) {
   const ready = chapters.filter(c => c.status === "ready").length;
   const groups = groupChapters(sectionId, chapters);
   const [openGroup, setOpenGroup] = useState(groups ? groups[0].key : null);
@@ -474,14 +490,17 @@ function ChapterList({ chapters, onOpen, sectionId }) {
               isOpen={openGroup === g.key}
               onToggle={() => setOpenGroup(openGroup === g.key ? null : g.key)}
               onOpen={onOpen}
+              sectionId={sectionId}
+              bookmarks={bookmarks}
+              onToggleBookmark={onToggleBookmark}
             />
           ))
-        : <ChapterRows chapters={chapters} onOpen={onOpen} />}
+        : <ChapterRows chapters={chapters} onOpen={onOpen} sectionId={sectionId} bookmarks={bookmarks} onToggleBookmark={onToggleBookmark} />}
     </div>
   );
 }
 
-function ChapterDrawer({ group, isOpen, onToggle, onOpen }) {
+function ChapterDrawer({ group, isOpen, onToggle, onOpen, sectionId, bookmarks, onToggleBookmark }) {
   const readyCount = group.chapters.filter(c => c.status === "ready").length;
   return (
     <div className="drawer" style={{ borderColor: isOpen ? group.color : "var(--parch2)" }}>
@@ -496,24 +515,35 @@ function ChapterDrawer({ group, isOpen, onToggle, onOpen }) {
       </button>
       {isOpen && (
         <div className="drawerbody">
-          <ChapterRows chapters={group.chapters} onOpen={onOpen} />
+          <ChapterRows chapters={group.chapters} onOpen={onOpen} sectionId={sectionId} bookmarks={bookmarks} onToggleBookmark={onToggleBookmark} />
         </div>
       )}
     </div>
   );
 }
 
-function ChapterRows({ chapters, onOpen }) {
+function ChapterRows({ chapters, onOpen, sectionId, bookmarks, onToggleBookmark }) {
   return (
     <div className="chaplist">
       {chapters.map((c, i) => {
         const isReady = c.status === "ready";
+        const isBookmarked = !!(bookmarks && bookmarks[`chap:${sectionId}:${c.id}`]);
         return (
           <button key={c.id} className={`chapitem ${isReady ? "ready" : "coming"}`} disabled={!isReady} onClick={() => isReady && onOpen(c.id)}>
             <span className="chapnum">{String(i + 1).padStart(2, "0")}</span>
             <span className="chaptext">
               <span className="chaptitle">{c.title}</span>
             </span>
+            {isReady && onToggleBookmark && (
+              <span
+                className={`chapstar ${isBookmarked ? "on" : ""}`}
+                role="button"
+                aria-label={isBookmarked ? "Remove bookmark" : "Bookmark chapter"}
+                onClick={(e) => { e.stopPropagation(); onToggleBookmark(c.id); }}
+              >
+                {isBookmarked ? "★" : "☆"}
+              </span>
+            )}
             <span className="chapchev">{isReady ? "→" : ""}</span>
           </button>
         );
@@ -621,7 +651,53 @@ function SectionProgress({ isLive, known, total, cards }) {
   );
 }
 
-/* ---------------- FLASHCARD player ---------------- */
+/* ---------------- FLASHCARD hub (deck picker, mirrors QuizHub) ---------------- */
+function CardsHub({ go, cardsBySection }) {
+  return (
+    <div>
+      <Header eyebrow="Study Tools" title="Flashcards" sub="Pick a deck — decks stay separate so Points, Single Herbs, and Formulas never get mixed together." />
+      {AREAS.map(area => {
+        const sections = area.sections.filter(s => !s.noCards);
+        if (sections.length === 0) return null;
+        return (
+          <div key={area.id} style={{ marginBottom: 24 }}>
+            <div className="panellabel" style={{ marginBottom: 10 }}>{area.label}</div>
+            <div className="grid2">
+              {sections.map(s => {
+                const cards = cardsBySection[s.id] || [];
+                const count = cards.length;
+                return (
+                  <button
+                    key={s.id}
+                    className={`ministat ${count > 0 ? "click" : ""}`}
+                    disabled={count === 0}
+                    style={count === 0 ? { opacity: 0.5, cursor: "default" } : undefined}
+                    onClick={() => count > 0 && go("cardsSection", s.id)}
+                  >
+                    <div className="ministatlabel">{s.label}</div>
+                    <div className="ministatvalue">{count}</div>
+                    <div className="ministatnote">{count > 0 ? "cards available" : "Coming soon"}</div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function CardsHubWithBack({ known, setKnown, embedded, points, sectionTitle, onBack }) {
+  return (
+    <div>
+      <button className="backbtn" onClick={onBack}>← Flashcard Decks</button>
+      <Header eyebrow="Study Tools" title={sectionTitle || "Flashcards"} inline />
+      <CardsPlayer known={known} setKnown={setKnown} embedded={embedded} points={points} />
+    </div>
+  );
+}
+
 function buildChapterOptions(cards) {
   const bySection = new Map();
   cards.forEach(c => {
@@ -804,30 +880,134 @@ function QuizHub({ go, cardsBySection }) {
   return (
     <div>
       <Header eyebrow="Study Tools" title="Quiz" sub="Pick a category to practice — questions are generated from that section's content." />
-      <div className="grid2">
-        {AREAS.flatMap(a => a.sections).map(s => {
-          const cards = cardsBySection[s.id] || [];
-          const count = cards.length;
-          return (
-            <button
-              key={s.id}
-              className={`ministat ${count > 0 ? "click" : ""}`}
-              disabled={count === 0}
-              style={count === 0 ? { opacity: 0.5, cursor: "default" } : undefined}
-              onClick={() => count > 0 && go("quizSection", s.id)}
-            >
-              <div className="ministatlabel">{s.label}</div>
-              <div className="ministatvalue">{count}</div>
-              <div className="ministatnote">{count > 0 ? "items available" : "Coming soon"}</div>
-            </button>
-          );
-        })}
-      </div>
+      {AREAS.map(area => {
+        const sections = area.sections.filter(s => !s.noCards);
+        if (sections.length === 0) return null;
+        return (
+          <div key={area.id} style={{ marginBottom: 24 }}>
+            <div className="panellabel" style={{ marginBottom: 10 }}>{area.label}</div>
+            <div className="grid2">
+              {sections.map(s => {
+                const cards = cardsBySection[s.id] || [];
+                const count = cards.length;
+                return (
+                  <button
+                    key={s.id}
+                    className={`ministat ${count > 0 ? "click" : ""}`}
+                    disabled={count === 0}
+                    style={count === 0 ? { opacity: 0.5, cursor: "default" } : undefined}
+                    onClick={() => count > 0 && go("quizSection", s.id)}
+                  >
+                    <div className="ministatlabel">{s.label}</div>
+                    <div className="ministatvalue">{count}</div>
+                    <div className="ministatnote">{count > 0 ? "items available" : "Coming soon"}</div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
 
 /* ---------------- MOCK EXAM stub ---------------- */
+/* ---------------- POMODORO timer ---------------- */
+function PomodoroTimer() {
+  const PRESETS = { work: 25, short: 5, long: 15 };
+  const [mode, setMode] = useState("work"); // work | short | long
+  const [minutes, setMinutes] = useState(PRESETS);
+  const [secondsLeft, setSecondsLeft] = useState(PRESETS.work * 60);
+  const [running, setRunning] = useState(false);
+  const [cyclesDone, setCyclesDone] = useState(0);
+  const intervalRef = useRef(null);
+
+  useEffect(() => {
+    if (!running) return;
+    intervalRef.current = setInterval(() => {
+      setSecondsLeft(s => {
+        if (s <= 1) {
+          clearInterval(intervalRef.current);
+          setRunning(false);
+          if (mode === "work") {
+            const nextCycles = cyclesDone + 1;
+            setCyclesDone(nextCycles);
+            const nextMode = nextCycles % 4 === 0 ? "long" : "short";
+            setMode(nextMode);
+            return minutes[nextMode] * 60;
+          }
+          setMode("work");
+          return minutes.work * 60;
+        }
+        return s - 1;
+      });
+    }, 1000);
+    return () => clearInterval(intervalRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [running]);
+
+  const switchMode = (m) => { setRunning(false); setMode(m); setSecondsLeft(minutes[m] * 60); };
+  const reset = () => { setRunning(false); setSecondsLeft(minutes[mode] * 60); };
+  const adjustMinutes = (m, delta) => {
+    setMinutes(prev => {
+      const next = { ...prev, [m]: Math.max(1, prev[m] + delta) };
+      if (m === mode && !running) setSecondsLeft(next[m] * 60);
+      return next;
+    });
+  };
+
+  const total = minutes[mode] * 60;
+  const pct = Math.round(((total - secondsLeft) / total) * 100);
+  const mm = String(Math.floor(secondsLeft / 60)).padStart(2, "0");
+  const ss = String(secondsLeft % 60).padStart(2, "0");
+  const modeColor = mode === "work" ? "var(--cinnabar)" : "var(--jade)";
+  const modeLabel = { work: "Focus", short: "Short Break", long: "Long Break" };
+
+  return (
+    <div>
+      <Header eyebrow="Study Tools" title="Pomodoro" sub="25 minutes of focus, then a break — repeats automatically, with a longer break every 4 rounds." />
+
+      <div className="subtabs">
+        {["work", "short", "long"].map(m => (
+          <button key={m} className={`subtab ${mode === m ? "on" : ""}`} onClick={() => switchMode(m)}>{modeLabel[m]}</button>
+        ))}
+      </div>
+
+      <div className="panel" style={{ textAlign: "center", padding: "40px 20px" }}>
+        <div className="pomomode" style={{ color: modeColor }}>{modeLabel[mode]}</div>
+        <div className="pomoclock">{mm}:{ss}</div>
+        <div className="bar" style={{ maxWidth: 360, margin: "18px auto 0" }}>
+          <div className="barfill" style={{ width: `${pct}%`, background: modeColor }} />
+        </div>
+
+        <div className="cardctrl" style={{ marginTop: 26 }}>
+          <button className="nav" onClick={reset}>↻ Reset</button>
+          <button className={`mark ${running ? "on" : ""}`} onClick={() => setRunning(r => !r)}>
+            {running ? "❙❙ Pause" : "▶ Start"}
+          </button>
+        </div>
+
+        {!running && (
+          <div className="pomoadjust">
+            <span className="dim" style={{ fontSize: 12.5 }}>{modeLabel[mode]} length</span>
+            <button className="ghost" onClick={() => adjustMinutes(mode, -5)}>−5</button>
+            <span className="mono">{minutes[mode]} min</span>
+            <button className="ghost" onClick={() => adjustMinutes(mode, 5)}>+5</button>
+          </div>
+        )}
+      </div>
+
+      <div className="panel">
+        <div className="panellabel">This Session</div>
+        <div className="statbig">{cyclesDone}<span className="statof">focus rounds completed</span></div>
+        <p className="dim">Counter resets when you leave this page — persistence can be added once accounts are live.</p>
+      </div>
+    </div>
+  );
+}
+
+
 function MockExamStub() {
   return (
     <div>
@@ -915,9 +1095,27 @@ function ProgressTracker({ knownCount, pointsTotal, cardsBySection, known }) {
 }
 
 /* ---------------- MY PAGE ---------------- */
-function MyPage({ pointsPct, bookmarks, setBookmarks, go, dday }) {
-  const bmList = Object.entries(bookmarks).filter(([, v]) => v).map(([k]) => k.replace("sec:", ""));
-  const remove = (sid) => setBookmarks(prev => { const n = { ...prev, [`sec:${sid}`]: false }; store.set("tcm:bookmarks", n); return n; });
+function MyPage({ pointsPct, bookmarks, setBookmarks, chapterData, go, dday }) {
+  const bmEntries = Object.entries(bookmarks).filter(([, v]) => v).map(([k]) => k);
+
+  const resolveChapterTitle = (sid, chapterId) => {
+    const chapters = chapterData ? chapterData[sid] : null;
+    const ch = chapters && chapters.find(c => c.id === chapterId);
+    return ch ? ch.title : chapterId;
+  };
+
+  const bmItems = bmEntries.map(key => {
+    if (key.startsWith("chap:")) {
+      const [, sid, chapterId] = key.split(":");
+      return { key, kind: "chapter", sid, chapterId, label: resolveChapterTitle(sid, chapterId), sectionLabel: SECTION_INDEX[sid]?.label || sid };
+    }
+    const sid = key.replace("sec:", "");
+    return { key, kind: "section", sid, label: SECTION_INDEX[sid]?.label || sid, sectionLabel: SECTION_INDEX[sid]?.area || "" };
+  });
+
+  const remove = (key) => setBookmarks(prev => { const n = { ...prev, [key]: false }; store.set("tcm:bookmarks", n); return n; });
+  const openBookmark = (item) => item.kind === "chapter" ? go("section", item.sid, item.chapterId) : go("section", item.sid);
+
   return (
     <div>
       <Header eyebrow="My Page" title="Account" />
@@ -930,13 +1128,16 @@ function MyPage({ pointsPct, bookmarks, setBookmarks, go, dday }) {
         <div className="panel"><div className="panellabel">Days Until Exam</div><div className="ddaybig">{dday !== null ? (dday > 0 ? `D-${dday}` : "D-DAY") : "Not set"}</div></div>
       </div>
       <div className="panel">
-        <div className="panellabel">Bookmarks {bmList.length > 0 && `· ${bmList.length}`}</div>
-        {bmList.length === 0
-          ? <p className="dim">Add bookmarks using the ☆ button on section pages.</p>
-          : bmList.map(sid => (
-            <div className="bmrow" key={sid}>
-              <button className="bmname" onClick={() => go("section", sid)}>{SECTION_INDEX[sid]?.label || sid}</button>
-              <button className="bmremove" onClick={() => remove(sid)}>✕</button>
+        <div className="panellabel">Bookmarks {bmItems.length > 0 && `· ${bmItems.length}`}</div>
+        {bmItems.length === 0
+          ? <p className="dim">Add bookmarks using the ☆ button on section pages, or the ☆ next to any chapter.</p>
+          : bmItems.map(item => (
+            <div className="bmrow" key={item.key}>
+              <button className="bmname" onClick={() => openBookmark(item)}>
+                {item.label}
+                {item.kind === "chapter" && <span className="bmsectag">{item.sectionLabel}</span>}
+              </button>
+              <button className="bmremove" onClick={() => remove(item.key)}>✕</button>
             </div>
           ))}
       </div>
@@ -1149,6 +1350,14 @@ const CSS = `
 .drawerchev{color:var(--dim);font-size:16px;transition:transform .18s;}
 .drawerbody{padding:0 12px 12px;}
 .chaplist{display:flex;flex-direction:column;gap:8px;}
+.chapstar{font-size:16px;color:var(--parch2);cursor:pointer;padding:2px 6px;line-height:1;flex-shrink:0;}
+.chapstar.on{color:var(--brass);}
+.chapstar:hover{color:var(--brass);}
+.chapheadrow{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.bmsectag{font-size:11.5px;color:var(--dim);margin-left:8px;font-weight:400;}
+.pomomode{font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px;}
+.pomoclock{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:64px;font-weight:600;color:var(--ink);line-height:1;}
+.pomoadjust{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:20px;}
 .chapitem{display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:var(--card);border:1px solid var(--parch2);border-radius:10px;padding:16px 18px;cursor:pointer;font-family:inherit;transition:border-color .12s;}
 .chapitem.ready:hover{border-color:var(--jade);}
 .chapitem.coming{opacity:.55;cursor:default;}
