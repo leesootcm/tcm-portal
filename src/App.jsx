@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { supabase } from "./supabaseClient";
 
 /* =================================================================
    Pan-Canadian TCM Exam Portal — full navigable shell (single-user)
@@ -210,6 +211,20 @@ export default function App() {
   const [examDate, setExamDate] = useState("");
   const [chapterData, setChapterData] = useState(null); // null = still loading
 
+  const [session, setSession] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      setAuthLoading(false);
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession);
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
   useEffect(() => { (async () => {
     setKnown(await store.get("tcm:known", {}));
     setWrong(await store.get("tcm:wrong", []));
@@ -320,7 +335,7 @@ export default function App() {
           {nav.view === "upload" && <UploadStub />}
           {nav.view === "mockexam" && <MockExamStub />}
           {nav.view === "progress" && <ProgressTracker knownCount={knownCount} pointsTotal={allPoints.length} cardsBySection={cardsBySection} known={known} />}
-          {nav.view === "mypage" && <MyPage pointsPct={pointsPct} pointsTotal={allPoints.length} bookmarks={bookmarks} setBookmarks={setBookmarks} chapterData={chapterData} go={go} dday={dday} />}
+          {nav.view === "mypage" && <MyPage pointsPct={pointsPct} pointsTotal={allPoints.length} bookmarks={bookmarks} setBookmarks={setBookmarks} chapterData={chapterData} go={go} dday={dday} session={session} authLoading={authLoading} />}
           {nav.view === "pomodoro" && <PomodoroTimer />}
         </main>
       </div>
@@ -1101,7 +1116,121 @@ function ProgressTracker({ knownCount, pointsTotal, cardsBySection, known }) {
 }
 
 /* ---------------- MY PAGE ---------------- */
-function MyPage({ pointsPct, bookmarks, setBookmarks, chapterData, go, dday }) {
+/* ---------------- AUTH (Supabase) ---------------- */
+function SignedInPanel({ session }) {
+  const email = session.user?.email || "Signed in";
+  const initial = (email[0] || "?").toUpperCase();
+  const [signingOut, setSigningOut] = useState(false);
+
+  const signOut = async () => {
+    setSigningOut(true);
+    await supabase.auth.signOut();
+    setSigningOut(false);
+  };
+
+  return (
+    <div className="acctrow">
+      <div className="avatar">{initial}</div>
+      <div style={{ flex: 1 }}>
+        <div className="acctname">{email}</div>
+        <div className="dim">Signed in with Supabase. Progress sync is coming soon — for now, data still lives on this device.</div>
+      </div>
+      <button className="ghost" onClick={signOut} disabled={signingOut}>{signingOut ? "Signing out…" : "Sign out"}</button>
+    </div>
+  );
+}
+
+function AuthPanel() {
+  const [mode, setMode] = useState("signin"); // signin | signup
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setError(""); setNotice(""); setBusy(true);
+    try {
+      if (mode === "signin") {
+        const { error: err } = await supabase.auth.signInWithPassword({ email, password });
+        if (err) throw err;
+      } else {
+        const { error: err } = await supabase.auth.signUp({ email, password });
+        if (err) throw err;
+        setNotice("Account created — check your inbox to confirm your email, then sign in.");
+      }
+    } catch (err) {
+      setError(err.message || "Something went wrong. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const withGoogle = async () => {
+    setError(""); setBusy(true);
+    try {
+      const { error: err } = await supabase.auth.signInWithOAuth({ provider: "google" });
+      if (err) throw err;
+    } catch (err) {
+      setError(err.message || "Google sign-in failed.");
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="authwrap">
+      <div className="subtabs" style={{ marginBottom: 16 }}>
+        <button className={`subtab ${mode === "signin" ? "on" : ""}`} onClick={() => { setMode("signin"); setError(""); setNotice(""); }}>Sign In</button>
+        <button className={`subtab ${mode === "signup" ? "on" : ""}`} onClick={() => { setMode("signup"); setError(""); setNotice(""); }}>Create Account</button>
+      </div>
+
+      <form onSubmit={submit} className="authform">
+        <label className="authlabel">
+          Email
+          <input
+            className="dateinput"
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+            style={{ width: "100%", marginTop: 4 }}
+          />
+        </label>
+        <label className="authlabel">
+          Password
+          <input
+            className="dateinput"
+            type="password"
+            required
+            minLength={6}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="At least 6 characters"
+            style={{ width: "100%", marginTop: 4 }}
+          />
+        </label>
+
+        {error && <div className="autherror">{error}</div>}
+        {notice && <div className="authnotice">{notice}</div>}
+
+        <button className="mark" type="submit" disabled={busy} style={{ marginTop: 4 }}>
+          {busy ? "Please wait…" : mode === "signin" ? "Sign In" : "Create Account"}
+        </button>
+      </form>
+
+      <div className="authdivider"><span>or</span></div>
+
+      <button className="nav" onClick={withGoogle} disabled={busy} style={{ width: "100%" }}>
+        Continue with Google
+      </button>
+    </div>
+  );
+}
+
+
+function MyPage({ pointsPct, bookmarks, setBookmarks, chapterData, go, dday, session, authLoading }) {
   const bmEntries = Object.entries(bookmarks).filter(([, v]) => v).map(([k]) => k);
 
   const resolveChapterTitle = (sid, chapterId) => {
@@ -1127,7 +1256,11 @@ function MyPage({ pointsPct, bookmarks, setBookmarks, chapterData, go, dday }) {
       <Header eyebrow="My Page" title="Account" />
       <div className="panel">
         <div className="panellabel">Account</div>
-        <div className="acctrow"><div className="avatar">G</div><div><div className="acctname">Guest (Local)</div><div className="dim">Login will be supported in the production version.</div></div></div>
+        {authLoading
+          ? <p className="dim">Loading account…</p>
+          : session
+            ? <SignedInPanel session={session} />
+            : <AuthPanel />}
       </div>
       <div className="grid2">
         <div className="panel"><div className="panellabel">Overall Progress</div><div className="statbig">{pointsPct}<span className="statof">%</span></div><Bar pct={pointsPct} /></div>
@@ -1302,6 +1435,14 @@ const CSS = `
 .progpct{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12.5px;color:var(--dim);min-width:36px;text-align:right;}
 .dim{font-size:13px;color:var(--dim);line-height:1.55;margin:10px 0 0;}
 .acctrow{display:flex;align-items:center;gap:14px;}
+.authwrap{max-width:360px;}
+.authform{display:flex;flex-direction:column;gap:14px;}
+.authlabel{display:flex;flex-direction:column;font-size:12.5px;font-weight:600;color:var(--dim);}
+.autherror{background:#FDECEC;border:1px solid var(--cinnabar);color:var(--cinnabar);border-radius:8px;padding:9px 12px;font-size:13px;}
+.authnotice{background:#E7F5EF;border:1px solid var(--jade);color:var(--jade);border-radius:8px;padding:9px 12px;font-size:13px;}
+.authdivider{display:flex;align-items:center;text-align:center;color:var(--dim);font-size:12px;margin:18px 0;}
+.authdivider::before,.authdivider::after{content:"";flex:1;height:1px;background:var(--parch2);}
+.authdivider span{padding:0 10px;}
 .avatar{width:44px;height:44px;border-radius:50%;background:var(--jade);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;}
 .acctname{font-weight:600;font-size:15px;}
 .bmrow{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--parch);}
