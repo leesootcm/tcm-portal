@@ -412,7 +412,7 @@ function SectionPage({ sid, go, known, setKnown, bookmarks, setBookmarks, wrong,
                 <LectureNote note={activeChapter} />
                 <button className="backbtn backbtn-bottom" onClick={() => setOpenChapter(null)}>← Back to Chapter List</button>
               </div>
-            : <ChapterList chapters={chapters} onOpen={setOpenChapter} />)
+            : <ChapterList chapters={chapters} onOpen={setOpenChapter} sectionId={sid} />)
         : isLive
           ? <PointsNotes points={allPoints} />
           : <Empty icon="✎" title="Notes coming soon" body={`Notes for ${s.label} are not available yet. Lecture notes will appear here.`} />)}
@@ -430,25 +430,85 @@ function SectionPage({ sid, go, known, setKnown, bookmarks, setBookmarks, wrong,
   );
 }
 
-function ChapterList({ chapters, onOpen }) {
+/* ---------------- chapter drawer groups (collapsible, color-coded) ---------------- */
+/* Only sections with a lot of chapters need grouping. Add an entry here to opt a
+   section in — everything else keeps the plain flat ChapterList it always had. */
+const CHAPTER_GROUPS = {
+  "acu-pattern": [
+    { key: "zangfu", label: "Zang-Fu Patterns", labelKo: "장부변증", color: "var(--jade)", match: (id) => id.startsWith("diag-zf-") },
+    { key: "disease", label: "Disease-Pattern Differentiation", labelKo: "질병별 변증", color: "var(--cinnabar)", match: (id) => id.startsWith("diag-disease-") },
+    { key: "systems", label: "Diagnostic Systems", labelKo: "변증 체계", color: "var(--brass)", match: (id) => !id.startsWith("diag-zf-") && !id.startsWith("diag-disease-") },
+  ],
+};
+
+function groupChapters(sectionId, chapters) {
+  const config = CHAPTER_GROUPS[sectionId];
+  if (!config) return null;
+  const groups = config.map(g => ({ ...g, chapters: chapters.filter(c => g.match(c.id)) }));
+  const grouped = groups.some(g => g.chapters.length > 0);
+  return grouped ? groups : null;
+}
+
+function ChapterList({ chapters, onOpen, sectionId }) {
   const ready = chapters.filter(c => c.status === "ready").length;
+  const groups = groupChapters(sectionId, chapters);
+  const [openGroup, setOpenGroup] = useState(groups ? groups[0].key : null);
+
   return (
     <div className="chapwrap">
       <p className="chaplead">{ready} of {chapters.length} chapters ready in this subject. Select a chapter to open its notes.</p>
-      <div className="chaplist">
-        {chapters.map((c, i) => {
-          const isReady = c.status === "ready";
-          return (
-            <button key={c.id} className={`chapitem ${isReady ? "ready" : "coming"}`} disabled={!isReady} onClick={() => isReady && onOpen(c.id)}>
-              <span className="chapnum">{String(i + 1).padStart(2, "0")}</span>
-              <span className="chaptext">
-                <span className="chaptitle">{c.title} <span className="chapcn">{c.titleCn}</span></span>
-              </span>
-              <span className="chapchev">{isReady ? "→" : ""}</span>
-            </button>
-          );
-        })}
-      </div>
+      {groups
+        ? groups.map(g => (
+            <ChapterDrawer
+              key={g.key}
+              group={g}
+              isOpen={openGroup === g.key}
+              onToggle={() => setOpenGroup(openGroup === g.key ? null : g.key)}
+              onOpen={onOpen}
+            />
+          ))
+        : <ChapterRows chapters={chapters} onOpen={onOpen} />}
+    </div>
+  );
+}
+
+function ChapterDrawer({ group, isOpen, onToggle, onOpen }) {
+  const readyCount = group.chapters.filter(c => c.status === "ready").length;
+  return (
+    <div className="drawer" style={{ borderColor: isOpen ? group.color : "var(--parch2)" }}>
+      <button className="drawerhead" onClick={onToggle}>
+        <span className="drawerswatch" style={{ background: group.color }} />
+        <span className="drawertext">
+          <span className="drawertitle">{group.label}</span>
+          <span className="drawerko">{group.labelKo}</span>
+        </span>
+        <span className="drawercount" style={{ color: group.color, borderColor: group.color }}>{readyCount}/{group.chapters.length}</span>
+        <span className="drawerchev" style={{ transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }}>⌄</span>
+      </button>
+      {isOpen && (
+        <div className="drawerbody">
+          <ChapterRows chapters={group.chapters} onOpen={onOpen} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ChapterRows({ chapters, onOpen }) {
+  return (
+    <div className="chaplist">
+      {chapters.map((c, i) => {
+        const isReady = c.status === "ready";
+        return (
+          <button key={c.id} className={`chapitem ${isReady ? "ready" : "coming"}`} disabled={!isReady} onClick={() => isReady && onOpen(c.id)}>
+            <span className="chapnum">{String(i + 1).padStart(2, "0")}</span>
+            <span className="chaptext">
+              <span className="chaptitle">{c.title}</span>
+            </span>
+            <span className="chapchev">{isReady ? "→" : ""}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -457,13 +517,13 @@ function LectureNote({ note }) {
   return (
     <div className="lnote">
       <div className="lnotehead">
-        <div className="lnotetitle">{note.title} <span className="lnotecn">{note.titleCn}</span></div>
+        <div className="lnotetitle">{note.title}</div>
         <div className="lnotesrc">source · {note.source}</div>
       </div>
 
       {note.blocks.map((b, bi) => (
         <section className="lblock" key={bi}>
-          <h3 className="lblockhead">{b.heading}{b.headingCn && <span className="lblockcn"> {b.headingCn}</span>}</h3>
+          <h3 className="lblockhead">{b.heading}</h3>
           {b.lead && <p className="llead">{b.lead}</p>}
 
           {b.image && (
@@ -1067,6 +1127,15 @@ const CSS = `
 .backbtn-bottom{padding:18px 0 0;margin-top:6px;border-top:1px solid var(--parch2);width:100%;text-align:left;}
 .chapwrap{}
 .chaplead{font-size:14px;color:var(--ink);margin:0 0 16px;line-height:1.6;}
+.drawer{border:1px solid var(--parch2);border-radius:12px;margin-bottom:12px;overflow:hidden;transition:border-color .15s;background:var(--card);}
+.drawerhead{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:none;background:none;padding:14px 16px;cursor:pointer;font-family:inherit;}
+.drawerswatch{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.drawertext{flex:1;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;}
+.drawertitle{font-size:14.5px;font-weight:600;color:var(--ink);}
+.drawerko{font-size:12px;color:var(--dim);}
+.drawercount{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11.5px;border:1px solid;border-radius:20px;padding:2px 9px;}
+.drawerchev{color:var(--dim);font-size:16px;transition:transform .18s;}
+.drawerbody{padding:0 12px 12px;}
 .chaplist{display:flex;flex-direction:column;gap:8px;}
 .chapitem{display:flex;align-items:center;gap:14px;width:100%;text-align:left;background:var(--card);border:1px solid var(--parch2);border-radius:10px;padding:16px 18px;cursor:pointer;font-family:inherit;transition:border-color .12s;}
 .chapitem.ready:hover{border-color:var(--jade);}
