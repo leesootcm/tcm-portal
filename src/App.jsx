@@ -326,7 +326,7 @@ export default function App() {
         {/* ---------------- main ---------------- */}
         <main className="main">
           {nav.view === "home" && <Home go={go} pointsPct={pointsPct} knownCount={knownCount} pointsTotal={allPoints.length} wrong={wrong} dday={dday} examDate={examDate} setExamDate={(v) => { setExamDate(v); store.set("tcm:examDate", v); }} />}
-          {nav.view === "section" && <SectionPage sid={nav.sectionId} initialChapterId={nav.chapterId} go={go} known={known} setKnown={setKnown} bookmarks={bookmarks} setBookmarks={setBookmarks} wrong={wrong} setWrong={setWrong} chapterData={chapterData} allPoints={allPoints} cardsBySection={cardsBySection} />}
+          {nav.view === "section" && <SectionPage sid={nav.sectionId} initialChapterId={nav.chapterId} go={go} known={known} setKnown={setKnown} bookmarks={bookmarks} setBookmarks={setBookmarks} wrong={wrong} setWrong={setWrong} chapterData={chapterData} allPoints={allPoints} cardsBySection={cardsBySection} session={session} />}
           {nav.view === "cards" && <CardsHub go={go} cardsBySection={cardsBySection} />}
           {nav.view === "cardsSection" && <CardsHubWithBack known={known} setKnown={setKnown} embedded points={cardsBySection[nav.sectionId] || []} sectionTitle={(SECTION_INDEX[nav.sectionId] || {}).label} onBack={() => go("cards")} />}
           {nav.view === "quiz" && <QuizHub go={go} cardsBySection={cardsBySection} />}
@@ -394,7 +394,7 @@ function Home({ go, pointsPct, knownCount, pointsTotal, wrong, dday, examDate, s
 }
 
 /* ---------------- SECTION page (4 sub-tabs) ---------------- */
-function SectionPage({ sid, initialChapterId, go, known, setKnown, bookmarks, setBookmarks, wrong, setWrong, chapterData, allPoints, cardsBySection }) {
+function SectionPage({ sid, initialChapterId, go, known, setKnown, bookmarks, setBookmarks, wrong, setWrong, chapterData, allPoints, cardsBySection, session }) {
   const s = SECTION_INDEX[sid];
   const [tab, setTab] = useState("notes");
   const [openChapter, setOpenChapter] = useState(initialChapterId || null);
@@ -413,10 +413,15 @@ function SectionPage({ sid, initialChapterId, go, known, setKnown, bookmarks, se
     return n;
   });
 
+  const isLoggedIn = !!session;
+  const freeChapterId = chapters && chapters.length > 0 ? chapters[0].id : null;
+  const isChapterLocked = (chapterId) => !isLoggedIn && chapterId !== freeChapterId;
+
   useEffect(() => { setOpenChapter(initialChapterId || null); }, [sid, initialChapterId]);
 
   const activeChapter = chapters && openChapter ? chapters.find(c => c.id === openChapter) : null;
-  const isCardChapter = isLive && activeChapter && (activeChapter.blocks || []).some(b => b.table);
+  const activeLocked = activeChapter ? isChapterLocked(activeChapter.id) : false;
+  const isCardChapter = isLive && activeChapter && !activeLocked && (activeChapter.blocks || []).some(b => b.table);
   const practiceThisChapter = () => { setCardFilter(activeChapter.id); setTab("cards"); };
   const activeIdx = chapters && activeChapter ? chapters.findIndex(c => c.id === activeChapter.id) : -1;
   const nextChapter = chapters && activeIdx >= 0 ? chapters.slice(activeIdx + 1).find(c => c.status === "ready") : null;
@@ -443,22 +448,28 @@ function SectionPage({ sid, initialChapterId, go, known, setKnown, bookmarks, se
             ? <div>
                 <div className="chapheadrow">
                   <button className="backbtn" style={{ padding: 0 }} onClick={() => setOpenChapter(null)}>← Chapter List</button>
-                  <button className={`bmbtn ${activeChapterBookmarked ? "on" : ""}`} onClick={() => toggleChapterBm(activeChapter.id)}>
-                    {activeChapterBookmarked ? "★ Bookmarked" : "☆ Bookmark chapter"}
-                  </button>
-                </div>
-                {isCardChapter && <button className="mark" style={{ marginBottom: 14 }} onClick={practiceThisChapter}>Practice this chapter with flashcards →</button>}
-                <LectureNote note={activeChapter} />
-                <div className="chapnavrow">
-                  <button className="backbtn" onClick={() => setOpenChapter(null)}>← Back to Chapter List</button>
-                  {nextChapter && (
-                    <button className="nextchapbtn" onClick={() => setOpenChapter(nextChapter.id)}>
-                      Next: {nextChapter.title} →
+                  {!activeLocked && (
+                    <button className={`bmbtn ${activeChapterBookmarked ? "on" : ""}`} onClick={() => toggleChapterBm(activeChapter.id)}>
+                      {activeChapterBookmarked ? "★ Bookmarked" : "☆ Bookmark chapter"}
                     </button>
                   )}
                 </div>
+                {activeLocked
+                  ? <LockedChapter title={activeChapter.title} go={go} />
+                  : <>
+                      {isCardChapter && <button className="mark" style={{ marginBottom: 14 }} onClick={practiceThisChapter}>Practice this chapter with flashcards →</button>}
+                      <LectureNote note={activeChapter} />
+                      <div className="chapnavrow">
+                        <button className="backbtn" onClick={() => setOpenChapter(null)}>← Back to Chapter List</button>
+                        {nextChapter && (
+                          <button className="nextchapbtn" onClick={() => setOpenChapter(nextChapter.id)}>
+                            Next: {nextChapter.title} →
+                          </button>
+                        )}
+                      </div>
+                    </>}
               </div>
-            : <ChapterList chapters={chapters} onOpen={setOpenChapter} sectionId={sid} bookmarks={bookmarks} onToggleBookmark={toggleChapterBm} />)
+            : <ChapterList chapters={chapters} onOpen={setOpenChapter} sectionId={sid} bookmarks={bookmarks} onToggleBookmark={toggleChapterBm} isLoggedIn={isLoggedIn} freeChapterId={freeChapterId} />)
         : isLive
           ? <PointsNotes points={allPoints} />
           : <Empty icon="✎" title="Notes coming soon" body={`Notes for ${s.label} are not available yet. Lecture notes will appear here.`} />)}
@@ -472,6 +483,19 @@ function SectionPage({ sid, initialChapterId, go, known, setKnown, bookmarks, se
         : <Empty icon="?" title="Question bank coming soon" body="No past-exam or mock questions yet." />)}
 
       {tab === "prog" && <SectionProgress isLive={isLive} known={known} total={sectionCards.length} cards={sectionCards} />}
+    </div>
+  );
+}
+
+function LockedChapter({ title, go }) {
+  return (
+    <div className="panel" style={{ textAlign: "center", padding: "48px 24px" }}>
+      <div style={{ fontSize: 34, marginBottom: 10 }}>🔒</div>
+      <div style={{ fontWeight: 600, fontSize: 16, color: "var(--ink)", marginBottom: 6 }}>{title}</div>
+      <p className="dim" style={{ maxWidth: 380, margin: "0 auto 20px" }}>
+        This chapter is available to signed-in users. Sign in (or create a free account) to keep reading.
+      </p>
+      <button className="mark" onClick={() => go("mypage")}>Sign In / Create Account</button>
     </div>
   );
 }
@@ -495,7 +519,7 @@ function groupChapters(sectionId, chapters) {
   return grouped ? groups : null;
 }
 
-function ChapterList({ chapters, onOpen, sectionId, bookmarks, onToggleBookmark }) {
+function ChapterList({ chapters, onOpen, sectionId, bookmarks, onToggleBookmark, isLoggedIn, freeChapterId }) {
   const ready = chapters.filter(c => c.status === "ready").length;
   const groups = groupChapters(sectionId, chapters);
   const [openGroup, setOpenGroup] = useState(groups ? groups[0].key : null);
@@ -503,6 +527,7 @@ function ChapterList({ chapters, onOpen, sectionId, bookmarks, onToggleBookmark 
   return (
     <div className="chapwrap">
       <p className="chaplead">{ready} of {chapters.length} chapters ready in this subject. Select a chapter to open its notes.</p>
+      {!isLoggedIn && <p className="freehint">🔓 First chapter of each section is free — sign in on My Page to unlock the rest.</p>}
       {groups
         ? groups.map(g => (
             <ChapterDrawer
@@ -514,14 +539,16 @@ function ChapterList({ chapters, onOpen, sectionId, bookmarks, onToggleBookmark 
               sectionId={sectionId}
               bookmarks={bookmarks}
               onToggleBookmark={onToggleBookmark}
+              isLoggedIn={isLoggedIn}
+              freeChapterId={freeChapterId}
             />
           ))
-        : <ChapterRows chapters={chapters} onOpen={onOpen} sectionId={sectionId} bookmarks={bookmarks} onToggleBookmark={onToggleBookmark} />}
+        : <ChapterRows chapters={chapters} onOpen={onOpen} sectionId={sectionId} bookmarks={bookmarks} onToggleBookmark={onToggleBookmark} isLoggedIn={isLoggedIn} freeChapterId={freeChapterId} />}
     </div>
   );
 }
 
-function ChapterDrawer({ group, isOpen, onToggle, onOpen, sectionId, bookmarks, onToggleBookmark }) {
+function ChapterDrawer({ group, isOpen, onToggle, onOpen, sectionId, bookmarks, onToggleBookmark, isLoggedIn, freeChapterId }) {
   const readyCount = group.chapters.filter(c => c.status === "ready").length;
   return (
     <div className="drawer" style={{ borderColor: isOpen ? group.color : "var(--parch2)" }}>
@@ -536,26 +563,28 @@ function ChapterDrawer({ group, isOpen, onToggle, onOpen, sectionId, bookmarks, 
       </button>
       {isOpen && (
         <div className="drawerbody">
-          <ChapterRows chapters={group.chapters} onOpen={onOpen} sectionId={sectionId} bookmarks={bookmarks} onToggleBookmark={onToggleBookmark} />
+          <ChapterRows chapters={group.chapters} onOpen={onOpen} sectionId={sectionId} bookmarks={bookmarks} onToggleBookmark={onToggleBookmark} isLoggedIn={isLoggedIn} freeChapterId={freeChapterId} />
         </div>
       )}
     </div>
   );
 }
 
-function ChapterRows({ chapters, onOpen, sectionId, bookmarks, onToggleBookmark }) {
+function ChapterRows({ chapters, onOpen, sectionId, bookmarks, onToggleBookmark, isLoggedIn, freeChapterId }) {
   return (
     <div className="chaplist">
       {chapters.map((c, i) => {
         const isReady = c.status === "ready";
         const isBookmarked = !!(bookmarks && bookmarks[`chap:${sectionId}:${c.id}`]);
+        const isLocked = isReady && !isLoggedIn && c.id !== freeChapterId;
         return (
-          <button key={c.id} className={`chapitem ${isReady ? "ready" : "coming"}`} disabled={!isReady} onClick={() => isReady && onOpen(c.id)}>
+          <button key={c.id} className={`chapitem ${isReady ? "ready" : "coming"} ${isLocked ? "locked" : ""}`} disabled={!isReady} onClick={() => isReady && onOpen(c.id)}>
             <span className="chapnum">{String(i + 1).padStart(2, "0")}</span>
             <span className="chaptext">
               <span className="chaptitle">{c.title}</span>
             </span>
-            {isReady && onToggleBookmark && (
+            {isLocked && <span className="chaplock" aria-label="Locked — sign in to view">🔒</span>}
+            {isReady && !isLocked && onToggleBookmark && (
               <span
                 className={`chapstar ${isBookmarked ? "on" : ""}`}
                 role="button"
@@ -1498,6 +1527,9 @@ const CSS = `
 .drawerbody{padding:0 12px 12px;}
 .chaplist{display:flex;flex-direction:column;gap:8px;}
 .chapstar{font-size:16px;color:var(--parch2);cursor:pointer;padding:2px 6px;line-height:1;flex-shrink:0;}
+.freehint{font-size:12.5px;color:var(--brass);background:rgba(59,130,196,0.08);border:1px solid var(--brass);border-radius:8px;padding:8px 12px;margin:-6px 0 14px;}
+.chaplock{font-size:14px;opacity:0.6;flex-shrink:0;margin-right:4px;}
+.chapitem.locked{opacity:0.65;}
 .chapstar.on{color:var(--brass);}
 .chapstar:hover{color:var(--brass);}
 .chapheadrow{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
